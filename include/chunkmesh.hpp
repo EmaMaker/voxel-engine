@@ -33,7 +33,7 @@ private:
 
     glm::mat4 model = glm::mat4(1.0f);
 
-    GLuint VAO, VBO, EBO, colorBuffer;
+    GLuint VAO, VBO, EBO, colorBuffer, vIndex{0};
     Shader *theShader;
 };
 

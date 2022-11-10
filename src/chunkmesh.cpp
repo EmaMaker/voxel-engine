@@ -55,6 +55,7 @@ void ChunkMesh::mesh()
      */
     vertices.clear();
     indices.clear();
+    vIndex = 0;
 
     // convert tree to array since it is easier to work with it
     std::array<Block, CHUNK_VOLUME> blocks = *(this->chunk->getBlocks());
@@ -97,10 +98,10 @@ void ChunkMesh::mesh()
                 {
                     for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++)
                     {
-                        Block b1 = (x[dim] >= 0) ? /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/ blocks[utils::coord3DTo1D(x[0], x[1], x[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] : Block::NULLBLK;
+                        Block b1 = (x[dim] >= 0) ? blocks[utils::coord3DTo1D(x[0], x[1], x[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/
                         Block b2 = (x[dim] < CHUNK_SIZE - 1)
-                                       ? /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]*/ blocks[utils::coord3DTo1D(x[0] + q[0], x[1] + q[1], x[2] + q[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)]
-                                       : Block::NULLBLK;
+                                       ? blocks[utils::coord3DTo1D(x[0] + q[0], x[1] + q[1], x[2] + q[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)]
+                                       : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]*/
 
                         // This is the original line taken from rob's code, readapted (replace voxelFace
                         // with b1 and b2).
@@ -113,7 +114,8 @@ void ChunkMesh::mesh()
                         // This can be surely refactored in something that isn't such a big one-liner
                         mask[n++] = b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2 ? Block::NULLBLK
                                     : backFace                                               ? b1 == Block::AIR || b1 == Block::NULLBLK ? b2 : Block::NULLBLK
-                                    : b2 == Block::AIR || b2 == Block::NULLBLK               ? b1 : Block::NULLBLK;
+                                    : b2 == Block::AIR || b2 == Block::NULLBLK               ? b1
+                                                                                             : Block::NULLBLK;
                     }
                 }
 
@@ -170,7 +172,6 @@ void ChunkMesh::mesh()
                                                x[2] + du[2] + dv[2]),
                                      glm::vec3(x[0] + dv[0], x[1] + dv[1], x[2] + dv[2]),
                                      mask[n], backFace);
-                                // System.out.println(Arrays.toString(chunk.chunkNode.getChildren().toArray()));
                             }
 
                             for (l = 0; l < h; ++l)
@@ -229,7 +230,7 @@ void ChunkMesh::draw()
     if (!(this->chunk))
         return;
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
 
     theShader->use();
     theShader->setMat4("model", this->model);
@@ -251,7 +252,7 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
     vertices.push_back(bottomRight.x);
     vertices.push_back(bottomRight.y);
     vertices.push_back(bottomRight.z);
-
+    
     vertices.push_back(topLeft.x);
     vertices.push_back(topLeft.y);
     vertices.push_back(topLeft.z);
@@ -260,26 +261,24 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
     vertices.push_back(topRight.y);
     vertices.push_back(topRight.z);
 
-    GLuint i = (vertices.size() / 3);
+    indices.push_back(vIndex + 2);
+    indices.push_back(vIndex + 3);
+    indices.push_back(vIndex + 1);
+    indices.push_back(vIndex + 1);
+    indices.push_back(vIndex);
+    indices.push_back(vIndex + 2);
+    vIndex+=4;
+    // }
+    // else
+    // {
+    //     indices.push_back(i + 2);
+    //     indices.push_back(i + 3);
+    //     indices.push_back(i + 1);
+    //     indices.push_back(i + 1);
+    //     indices.push_back(i);
+    //     indices.push_back(i + 2);
+    // }
 
-    if (backFace)
-    {
-        indices.push_back(i + 2);
-        indices.push_back(i);
-        indices.push_back(i + 1);
-        indices.push_back(i + 1);
-        indices.push_back(i + 3);
-        indices.push_back(i + 2);
-    }
-    else
-    {
-        indices.push_back(i + 2);
-        indices.push_back(i + 3);
-        indices.push_back(i + 1);
-        indices.push_back(i + 1);
-        indices.push_back(i);
-        indices.push_back(i + 2);
-    }
 
     GLfloat r, g, b;
     switch (block)
