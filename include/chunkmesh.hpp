@@ -28,11 +28,12 @@ private:
     // GLuint indices[(CHUNK_VOLUME)*8]{};
     // int vIndex{}, iIndex{};
     std::vector<GLfloat> vertices;
+    std::vector<GLfloat> colors;
     std::vector<GLuint> indices;
 
     glm::mat4 model = glm::mat4(1.0f);
 
-    GLuint VAO{}, VBO{}, EBO{};
+    GLuint VAO, VBO, EBO, colorBuffer;
     Shader *theShader;
 };
 

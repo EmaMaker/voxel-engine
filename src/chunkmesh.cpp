@@ -9,6 +9,7 @@
 
 ChunkMesh::ChunkMesh()
 {
+    // std::cout << "CHUNK MESH " << std::endl;
 }
 
 ChunkMesh::ChunkMesh(Chunk::Chunk *c)
@@ -16,11 +17,14 @@ ChunkMesh::ChunkMesh(Chunk::Chunk *c)
     this->chunk = c;
 
     glGenVertexArrays(1, &(this->VAO));
+    glGenBuffers(1, &(this->colorBuffer));
     glGenBuffers(1, &(this->VBO));
     glGenBuffers(1, &(this->EBO));
 
     this->theShader = new Shader{"shaders/shader.vs", "shaders/shader.fs"};
     this->model = glm::translate(model, (float)CHUNK_SIZE * c->getPosition());
+
+    // std::cout << "CHUNK MESH " << c << std::endl;
 }
 
 void ChunkMesh::mesh()
@@ -93,7 +97,7 @@ void ChunkMesh::mesh()
                 {
                     for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++)
                     {
-                        Block b1 = (x[dim] > 0) ? /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/ blocks[utils::coord3DTo1D(x[0], x[1], x[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] : Block::NULLBLK;
+                        Block b1 = (x[dim] >= 0) ? /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/ blocks[utils::coord3DTo1D(x[0], x[1], x[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] : Block::NULLBLK;
                         Block b2 = (x[dim] < CHUNK_SIZE - 1)
                                        ? /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]*/ blocks[utils::coord3DTo1D(x[0] + q[0], x[1] + q[1], x[2] + q[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)]
                                        : Block::NULLBLK;
@@ -105,25 +109,19 @@ void ChunkMesh::mesh()
 
                         // Additionally checking whether b1 and b2 are AIR or Block::NULLBLK allows face culling,
                         // thus not rendering faces that cannot be seen
-
-                        if (b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2)
-                            mask[n++] = Block::NULLBLK;
-                        else
-                        {
-                            // Removing the control for Block::NULLBLK disables chunk borders
-                            // TODO: disable chunk borders only if facing a chunk with a full side
-                            if (backFace)
-                                mask[n++] = b1 == Block::AIR || b1 == Block::NULLBLK ? b2 : Block::NULLBLK;
-                            else
-                                mask[n++] = b2 == Block::AIR || b2 == Block::NULLBLK ? b1 : Block::NULLBLK;
-                        }
+                        // Removing the control for Block::NULLBLK disables chunk borders
+                        // This can be surely refactored in something that isn't such a big one-liner
+                        mask[n++] = b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2 ? Block::NULLBLK
+                                    : backFace                                               ? b1 == Block::AIR || b1 == Block::NULLBLK ? b2 : Block::NULLBLK
+                                    : b2 == Block::AIR || b2 == Block::NULLBLK               ? b1 : Block::NULLBLK;
                     }
                 }
 
                 x[dim]++;
                 n = 0;
-                // Actually generate the mesh from the mask.
-                // This is the same thing I used in my old crappy voxel engine
+                // Actually generate the mesh from the mask. This is the
+                // same
+                // thing I used in my old crappy voxel engine
                 for (j = 0; j < CHUNK_SIZE; j++)
                 {
                     for (i = 0; i < CHUNK_SIZE;)
@@ -172,6 +170,7 @@ void ChunkMesh::mesh()
                                                x[2] + du[2] + dv[2]),
                                      glm::vec3(x[0] + dv[0], x[1] + dv[1], x[2] + dv[2]),
                                      mask[n], backFace);
+                                // System.out.println(Arrays.toString(chunk.chunkNode.getChildren().toArray()));
                             }
 
                             for (l = 0; l < h; ++l)
@@ -215,6 +214,12 @@ void ChunkMesh::mesh()
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
         glEnableVertexAttribArray(0);
 
+        glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+        glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &(colors[0]), GL_STATIC_DRAW);
+
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+
         glBindVertexArray(0);
     }
 }
@@ -238,6 +243,7 @@ void ChunkMesh::draw()
 
 void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
 {
+
     vertices.push_back(bottomLeft.x);
     vertices.push_back(bottomLeft.y);
     vertices.push_back(bottomLeft.z);
@@ -273,5 +279,46 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
         indices.push_back(i + 1);
         indices.push_back(i);
         indices.push_back(i + 2);
+    }
+
+    GLfloat r, g, b;
+    switch (block)
+    {
+    case Block::STONE:
+        r = 0.588f;
+        g = 0.588f;
+        b = 0.588f;
+        break;
+    case Block::GRASS:
+        r = 0.05f;
+        g = 0.925f;
+        b = 0.0f;
+        break;
+    case Block::DIRT:
+        r = 0.176f;
+        g = 0.282f;
+        b = 0.169f;
+        break;
+    default:
+        r = 0.0f;
+        g = 0.0f;
+        b = 0.0f;
+        break;
+    }
+
+    if ((bottomLeft.z == bottomRight.z && bottomRight.z == topLeft.z && topLeft.z == topRight.z))
+    {
+        r += 0.1f;
+        g += 0.1f;
+        if (g >= 1.0f)
+            g = 1.0f;
+        b += 0.1f;
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        colors.push_back(r);
+        colors.push_back(g);
+        colors.push_back(b);
     }
 }
