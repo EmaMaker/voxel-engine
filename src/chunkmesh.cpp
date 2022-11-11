@@ -279,7 +279,7 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
     //     indices.push_back(i + 2);
     // }
 
-
+    // ugly switch case
     GLfloat r, g, b;
     switch (block)
     {
@@ -290,7 +290,7 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
         break;
     case Block::GRASS:
         r = 0.05f;
-        g = 0.925f;
+        g = 0.725f;
         b = 0.0f;
         break;
     case Block::DIRT:
@@ -305,13 +305,19 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
         break;
     }
 
+    // Fake shadows
     if ((bottomLeft.z == bottomRight.z && bottomRight.z == topLeft.z && topLeft.z == topRight.z))
     {
         r += 0.1f;
         g += 0.1f;
-        if (g >= 1.0f)
-            g = 1.0f;
         b += 0.1f;
+    }
+
+    if ((bottomLeft.y == bottomRight.y && bottomRight.y == topLeft.y && topLeft.y == topRight.y))
+    {
+        r += 0.12f;
+        g += 0.12f;
+        b += 0.12f;
     }
 
     for (int i = 0; i < 4; i++)
