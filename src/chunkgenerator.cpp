@@ -7,14 +7,14 @@
 #include "OpenSimplexNoise.h"
 #include "utils.hpp"
 
-#define GRASS_OFFSET 80
+#define GRASS_OFFSET 40
 #define NOISE_GRASS_MULT 20
 #define NOISE_DIRT_MULT 3
 #define NOISE_DIRT_MIN 2
 #define NOISE_DIRT_X_MULT 0.001f
 #define NOISE_DIRT_Z_MULT 0.001f
-#define NOISE_GRASS_X_MULT 0.01f
-#define NOISE_GRASS_Z_MULT 0.01f
+#define NOISE_GRASS_X_MULT 0.035f
+#define NOISE_GRASS_Z_MULT 0.035f
 
 void generatePyramid(Chunk::Chunk *chunk);
 void generateNoise(Chunk::Chunk *chunk);
@@ -46,13 +46,13 @@ void generateNoise(Chunk::Chunk *chunk)
             {
                 int x = i + CHUNK_SIZE * chunk->getPosition().x;
                 int y = j + CHUNK_SIZE * chunk->getPosition().y;
-                int z = i + CHUNK_SIZE * chunk->getPosition().z;
+                int z = k + CHUNK_SIZE * chunk->getPosition().z;
                 int d2 = k * CHUNK_SIZE + i;
 
                 if (grassNoiseLUT[d2] == -1)
                     grassNoiseLUT[d2] = GRASS_OFFSET + (int)((0.5 + noiseGen1.eval(x * NOISE_GRASS_X_MULT, z * NOISE_GRASS_Z_MULT) * NOISE_GRASS_MULT));
                 if (dirtNoiseLUT[d2] == -1)
-                    dirtNoiseLUT[d2] = NOISE_DIRT_MIN + (int)((0.5 + noiseGen2.eval(x * NOISE_DIRT_Z_MULT, z * NOISE_DIRT_Z_MULT) * NOISE_DIRT_MULT));
+                    dirtNoiseLUT[d2] = NOISE_DIRT_MIN + (int)((0.5 + noiseGen2.eval(x * NOISE_DIRT_X_MULT, z * NOISE_DIRT_Z_MULT) * NOISE_DIRT_MULT));
 
                 int grassNoise = grassNoiseLUT[d2];
                 int dirtNoise = dirtNoiseLUT[d2];
