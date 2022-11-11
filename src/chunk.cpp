@@ -18,6 +18,10 @@ namespace Chunk
         // std::cout << "CHUNK" << std::endl;
     }
 
+    Chunk ::~Chunk()
+    {
+    }
+
     Block Chunk::getBlock(int x, int y, int z)
     {
         return blocks[utils::coord3DTo1D(x, y, z, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)];

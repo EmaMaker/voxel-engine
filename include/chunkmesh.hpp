@@ -14,10 +14,12 @@ class ChunkMesh
 
 public:
     ChunkMesh(Chunk::Chunk *c);
+    ~ChunkMesh();
+    
     void mesh();
     void draw();
 
-    Chunk::Chunk *chunk;
+    Chunk::Chunk *chunk{nullptr};
     // static Shader theShader("shaders/shader.vs", "shaders/shader.fs");
 
 private:
@@ -33,7 +35,7 @@ private:
     glm::mat4 model = glm::mat4(1.0f);
 
     GLuint VAO, VBO, EBO, colorBuffer, vIndex{0};
-    Shader *theShader;
+    Shader *theShader{nullptr};
 };
 
 #endif

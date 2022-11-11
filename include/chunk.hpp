@@ -29,6 +29,7 @@ namespace Chunk
 
     public:
         Chunk(glm::vec3 pos = glm::vec3(0.0f)); // a default value for the argument satisfies the need for a default constructor when using the type in an unordered_map (i.e. in chunkmanager)
+        ~Chunk();
 
     public:
         glm::vec3 getPosition() { return this->position; }

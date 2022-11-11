@@ -86,6 +86,7 @@ int main()
         glfwPollEvents();
     }
 
+    chunkmanager::destroy();
     glfwTerminate();
     return 0;
 }

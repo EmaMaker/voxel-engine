@@ -8,10 +8,8 @@
 #include "utils.hpp"
 
 ChunkMesh::~ChunkMesh(){
-    // std::cout << "Destroy" << this->chunk << std::endl;
-    // if(this->chunk != nullptr) delete this->chunk;
-    // this->chunk = nullptr;
-    // delete[] (this->theShader);
+    delete this->chunk;
+    delete (this->theShader);
 }
 
 ChunkMesh::ChunkMesh(Chunk::Chunk *c)
