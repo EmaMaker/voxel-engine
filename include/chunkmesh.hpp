@@ -13,7 +13,6 @@ class ChunkMesh
 {
 
 public:
-    ChunkMesh();
     ChunkMesh(Chunk::Chunk *c);
     void mesh();
     void draw();

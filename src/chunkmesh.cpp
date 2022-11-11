@@ -7,9 +7,11 @@
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
-ChunkMesh::ChunkMesh()
-{
-    // std::cout << "CHUNK MESH " << std::endl;
+ChunkMesh::~ChunkMesh(){
+    // std::cout << "Destroy" << this->chunk << std::endl;
+    // if(this->chunk != nullptr) delete this->chunk;
+    // this->chunk = nullptr;
+    // delete[] (this->theShader);
 }
 
 ChunkMesh::ChunkMesh(Chunk::Chunk *c)
@@ -30,8 +32,6 @@ ChunkMesh::ChunkMesh(Chunk::Chunk *c)
 void ChunkMesh::mesh()
 {
 
-    if (!(this->chunk))
-        return;
     /*
      * Taking inspiration from 0fps and the jme3 porting at
      * https://github.com/roboleary/GreedyMesh/blob/master/src/mygame/Main.java
@@ -227,8 +227,6 @@ void ChunkMesh::mesh()
 
 void ChunkMesh::draw()
 {
-    if (!(this->chunk))
-        return;
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
 

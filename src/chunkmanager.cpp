@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <string>
 
-std::unordered_map<std::uint32_t, ChunkMesh> chunks{};
+std::unordered_map<std::uint32_t, ChunkMesh> chunks;
 
 namespace chunkmanager
 {
@@ -86,16 +86,14 @@ namespace chunkmanager
         // std::cout << "Checking" << i << ", " << j  << ", " << k <<std::endl;
         if (chunks.find(index) == chunks.end())
         {
-            ChunkMesh c(new Chunk::Chunk(glm::vec3(i, j, k)));
-            chunks[index] = c;
-
-            generateChunk(chunks[index].chunk);
-            chunks[index].mesh();
+            chunks.insert(std::make_pair(index, ChunkMesh(new Chunk::Chunk(glm::vec3(i, j, k)))));
+            generateChunk(chunks.at(index) .chunk);
+            chunks.at(index).mesh();
 
             // std::cout << "Creating new chunk" << i << ", " << j  << ", " << k <<std::endl;
         }
-
-        chunks[index].draw();
+        else
+            chunks.at(index).draw();
     }
 
     void destroy()
