@@ -25,9 +25,6 @@ public:
 private:
     void quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace);
 
-    // GLfloat vertices[(CHUNK_VOLUME)*8 * 3]{};
-    // GLuint indices[(CHUNK_VOLUME)*8]{};
-    // int vIndex{}, iIndex{};
     std::vector<GLfloat> vertices;
     std::vector<GLfloat> colors;
     std::vector<GLuint> indices;
