@@ -18,7 +18,7 @@ public:
     {
         view = glm::mat4(1.0f);
         // note that we're translating the scene in the reverse direction of where we want to move
-        projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+        projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 0.1f, 200.0f);
     }
 
     void update(GLFWwindow *window, float deltaTime)
@@ -43,7 +43,7 @@ public:
 
     void viewPortCallBack(GLFWwindow *window, int width, int height)
     {
-        projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+        projection = glm::perspective(glm::radians(70.0f), (float)width / (float)height, 0.1f, 350.0f);
     }
 
     void mouseCallback(GLFWwindow *window, double xpos, double ypos)
@@ -92,7 +92,7 @@ public:
     }
 
 private:
-    glm::vec3 cameraPos = static_cast<float>(CHUNK_SIZE) * glm::vec3(0.0f);
+    glm::vec3 cameraPos = glm::vec3(static_cast<float>(CHUNK_SIZE)*24, 80.0f, static_cast<float>(CHUNK_SIZE)*24);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.0f);
