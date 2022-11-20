@@ -1,4 +1,5 @@
 #include <array>
+#include <memory>
 
 #include "block.hpp"
 #include "chunk.hpp"
@@ -7,7 +8,8 @@
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
-ChunkMesh::~ChunkMesh(){
+ChunkMesh::~ChunkMesh()
+{
     delete this->chunk;
     delete (this->theShader);
 }
@@ -56,9 +58,10 @@ void ChunkMesh::mesh()
     vIndex = 0;
 
     // convert tree to array since it is easier to work with it
-    std::array<Block, CHUNK_VOLUME> blocks = *(this->chunk->getBlocks());
+    int length{0};
+    Block *blocks = this->chunk->getBlocksArray(&length);
 
-    if (blocks.size() == 0)
+    if (length == 0)
         return;
 
     int k, l, u, v, w, h, n, j, i;
@@ -96,9 +99,9 @@ void ChunkMesh::mesh()
                 {
                     for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++)
                     {
-                        Block b1 = (x[dim] >= 0) ? blocks[utils::coord3DTo1D(x[0], x[1], x[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/
+                        Block b1 = (x[dim] >= 0) ? blocks[Chunk::coord3DTo1D(x[0], x[1], x[2])] : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/
                         Block b2 = (x[dim] < CHUNK_SIZE - 1)
-                                       ? blocks[utils::coord3DTo1D(x[0] + q[0], x[1] + q[1], x[2] + q[2], CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)]
+                                       ? blocks[Chunk::coord3DTo1D(x[0] + q[0], x[1] + q[1], x[2] + q[2])]
                                        : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]*/
 
                         // This is the original line taken from rob's code, readapted (replace voxelFace
@@ -119,9 +122,7 @@ void ChunkMesh::mesh()
 
                 x[dim]++;
                 n = 0;
-                // Actually generate the mesh from the mask. This is the
-                // same
-                // thing I used in my old crappy voxel engine
+                // Actually generate the mesh from the mask. This is the same thing I used in my old crappy voxel engine
                 for (j = 0; j < CHUNK_SIZE; j++)
                 {
                     for (i = 0; i < CHUNK_SIZE;)
@@ -198,6 +199,9 @@ void ChunkMesh::mesh()
         }
     }
 
+    if (blocks)
+        delete blocks;
+
     if (vertices.size() > 0)
     {
 
@@ -227,15 +231,17 @@ void ChunkMesh::draw()
 {
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
+    if (vertices.size() > 0)
+    {
+        theShader->use();
+        theShader->setMat4("model", this->model);
+        theShader->setMat4("view", theCamera.getView());
+        theShader->setMat4("projection", theCamera.getProjection());
 
-    theShader->use();
-    theShader->setMat4("model", this->model);
-    theShader->setMat4("view", theCamera.getView());
-    theShader->setMat4("projection", theCamera.getProjection());
-
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, static_cast<GLuint>(indices.size()), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLuint>(indices.size()), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
 }
 
 void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
@@ -248,7 +254,7 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
     vertices.push_back(bottomRight.x);
     vertices.push_back(bottomRight.y);
     vertices.push_back(bottomRight.z);
-    
+
     vertices.push_back(topLeft.x);
     vertices.push_back(topLeft.y);
     vertices.push_back(topLeft.z);
@@ -263,7 +269,7 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
     indices.push_back(vIndex + 1);
     indices.push_back(vIndex);
     indices.push_back(vIndex + 2);
-    vIndex+=4;
+    vIndex += 4;
     // }
     // else
     // {

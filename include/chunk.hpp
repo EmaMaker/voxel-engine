@@ -9,6 +9,8 @@
 #include <bitset>
 
 #include "block.hpp"
+#include "spacefilling.hpp"
+#include "intervalmap.hpp"
 
 #define CHUNK_SIZE 16
 #define CHUNK_VOLUME (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
@@ -39,11 +41,12 @@ namespace Chunk
 
         void setBlock(Block b, int x, int y, int z);
         Block getBlock(int x, int y, int z);
-        std::array<Block, CHUNK_VOLUME> *getBlocks() { return &(this->blocks); }
+        IntervalMap<Block>& getBlocks() { return (this->blocks); }
+        Block* getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
     private:
         glm::vec3 position{};
-        std::array<Block, CHUNK_VOLUME> blocks{};
+        IntervalMap<Block> blocks{};
 
         std::bitset<8> state{0};
     };

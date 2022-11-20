@@ -27,8 +27,8 @@ void generateChunk(Chunk::Chunk *chunk)
 Block block;
 
 std::mt19937 mt;
-OpenSimplexNoise::Noise noiseGen1(mt());
-OpenSimplexNoise::Noise noiseGen2(mt());
+OpenSimplexNoise::Noise noiseGen1(1234);
+OpenSimplexNoise::Noise noiseGen2(12345);
 
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> grassNoiseLUT;
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> dirtNoiseLUT;
@@ -79,5 +79,5 @@ void generatePyramid(Chunk::Chunk *chunk)
         for (int j = 0; j < CHUNK_SIZE; j++)
             for (int k = 0; k < CHUNK_SIZE; k++)
                 //             blocks[utils::coord3DTo1D(i, j, k, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] = j == 0 ? Block::STONE : Block::AIR;
-                chunk->setBlock(i >= j && i < CHUNK_SIZE - j && k >= j && k < CHUNK_SIZE - j ? Block::STONE : Block::AIR, i, j, k);
+                chunk->setBlock(i >= j && i < CHUNK_SIZE - j && k >= j && k < CHUNK_SIZE - j ? (j & 1) == 0 ? Block::GRASS : Block::STONE : Block::AIR, i, j, k);
 }
