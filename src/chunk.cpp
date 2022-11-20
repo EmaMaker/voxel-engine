@@ -37,6 +37,10 @@ namespace Chunk
         int coord = coord3DTo1D(x, y, z);
         blocks.insert(coord <= 0 ? 0 : coord, coord+1 >= CHUNK_VOLUME ? CHUNK_VOLUME : coord+1, b);
     }
+    
+    void Chunk::setBlocks(int start, int end, Block b){
+        this->blocks.insert(start < 0 ? 0 : start, end >= CHUNK_VOLUME ? CHUNK_VOLUME : end, b);
+    }
 
     void Chunk::setState(uint8_t nstate, bool value)
     {

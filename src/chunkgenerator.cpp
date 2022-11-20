@@ -40,9 +40,15 @@ void generateNoise(Chunk::Chunk *chunk)
         dirtNoiseLUT[i] = -1;
     }
 
-    for (int i = 0; i < CHUNK_SIZE; i++)
-        for (int k = 0; k < CHUNK_SIZE; k++)
-            for (int j = 0; j < CHUNK_SIZE; j++)
+    Block block_prev{Block::AIR};
+    int block_prev_start{0};
+
+    // The order of iteration MUST RESPECT the order in which the array is transformed from 3d to 1d
+    for (int k = 0; k < CHUNK_SIZE; k++)
+    {
+        for (int j = 0; j < CHUNK_SIZE; j++)
+        {
+            for (int i = 0; i < CHUNK_SIZE; i++)
             {
                 int x = i + CHUNK_SIZE * chunk->getPosition().x;
                 int y = j + CHUNK_SIZE * chunk->getPosition().y;
@@ -58,8 +64,6 @@ void generateNoise(Chunk::Chunk *chunk)
                 int dirtNoise = dirtNoiseLUT[d2];
                 int stoneLevel = grassNoise - dirtNoise;
 
-                // std::cout << grassNoise << " " << dirtNoise << " " << stoneLevel << std::endl;
-
                 if (y < stoneLevel)
                     block = Block::STONE;
                 else if (y >= stoneLevel && y < grassNoise)
@@ -69,8 +73,20 @@ void generateNoise(Chunk::Chunk *chunk)
                 else
                     block = Block::AIR;
 
-                chunk->setBlock(block, i, j, k);
+                int index = Chunk::coord3DTo1D(i, j, k);
+                int min = index > block_prev_start ? block_prev_start : index, max = index > block_prev_start ? index : block_prev_start;
+                if (block != block_prev)
+                {
+                    chunk->setBlocks(block_prev_start, index, block_prev);
+                    block_prev_start = index;
+                }
+
+                block_prev = block;
             }
+        }
+    }
+
+    chunk->setBlocks(block_prev_start, CHUNK_VOLUME, block_prev);
 }
 
 void generatePyramid(Chunk::Chunk *chunk)

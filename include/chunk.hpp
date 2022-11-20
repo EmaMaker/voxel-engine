@@ -40,6 +40,7 @@ namespace Chunk
         void setState(uint8_t nstate, bool value);
 
         void setBlock(Block b, int x, int y, int z);
+        void setBlocks(int start, int end, Block b);
         Block getBlock(int x, int y, int z);
         IntervalMap<Block>& getBlocks() { return (this->blocks); }
         Block* getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
