@@ -51,7 +51,7 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glEnable(GL_DEPTH_TEST);
 
-    // SpaceFilling::initLUT();
+    SpaceFilling::initLUT();
     chunkmanager::init();
 
     while (!glfwWindowShouldClose(window))

@@ -27,14 +27,12 @@ namespace Chunk
 
     Block Chunk::getBlock(int x, int y, int z)
     {
-        return blocks.at(coord3DTo1D(x, y, z));
-        // return blocks.at(HILBERT_XYZ_ENCODE[x][y][z]);
+        return blocks.at(HILBERT_XYZ_ENCODE[x][y][z]);
     }
 
     void Chunk::setBlock(Block b, int x, int y, int z)
     {
-        // return blocks.insert(HILBERT_XYZ_ENCODE[x][y][z], HILBERT_XYZ_ENCODE[x][y][z]+1, b);
-        int coord = coord3DTo1D(x, y, z);
+        int coord = HILBERT_XYZ_ENCODE[x][y][z];
         blocks.insert(coord <= 0 ? 0 : coord, coord+1 >= CHUNK_VOLUME ? CHUNK_VOLUME : coord+1, b);
     }
     

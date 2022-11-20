@@ -99,10 +99,10 @@ void ChunkMesh::mesh()
                 {
                     for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++)
                     {
-                        Block b1 = (x[dim] >= 0) ? blocks[Chunk::coord3DTo1D(x[0], x[1], x[2])] : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]*/
+                        Block b1 = (x[dim] >= 0) ? blocks[HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]: Block::NULLBLK;
                         Block b2 = (x[dim] < CHUNK_SIZE - 1)
-                                       ? blocks[Chunk::coord3DTo1D(x[0] + q[0], x[1] + q[1], x[2] + q[2])]
-                                       : Block::NULLBLK; /*blocks[SpaceFilling::HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]*/
+                                       ? blocks[HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]
+                                       : Block::NULLBLK; 
 
                         // This is the original line taken from rob's code, readapted (replace voxelFace
                         // with b1 and b2).
