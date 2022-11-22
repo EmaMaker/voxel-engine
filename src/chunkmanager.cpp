@@ -20,6 +20,7 @@ namespace chunkmanager
     {
     }
 
+    int total{0}, toGpu{0};
     void update(float deltaTime)
     {
         // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
@@ -79,6 +80,9 @@ namespace chunkmanager
                 }
             }
         }
+        std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
+        total = 0;
+        toGpu = 0;
     }
 
     void updateChunk(uint32_t index, uint16_t i, uint16_t j, uint16_t k)
@@ -92,11 +96,30 @@ namespace chunkmanager
             // std::cout << "Creating new chunk" << i << ", " << j  << ", " << k <<std::endl;
         }
         else
-            chunks.at(index)->draw();
+        {
+            glm::vec3 chunk = chunks.at(index)->chunk->getPosition() /*+ glm::vec3(static_cast<float>(CHUNK_SIZE))*/;
+        
+            total++;
+
+            int a{0};
+            for (int i = 0; i < 8; i++)
+            {
+                glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * chunks.at(index)->model);
+                vertex = glm::normalize(vertex);
+                
+                a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
+            }
+            if (a)
+            {
+                toGpu++;
+                chunks.at(index)->draw();
+            }
+        }
     }
 
     void destroy()
     {
-        for (auto &n : chunks) delete n.second;
+        for (auto &n : chunks)
+            delete n.second;
     }
 };

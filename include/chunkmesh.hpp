@@ -21,6 +21,7 @@ public:
 
     Chunk::Chunk *chunk{nullptr};
     // static Shader theShader("shaders/shader.vs", "shaders/shader.fs");
+    glm::mat4 model = glm::mat4(1.0f);
 
 private:
     void quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace);
@@ -29,7 +30,6 @@ private:
     std::vector<GLfloat> colors;
     std::vector<GLuint> indices;
 
-    glm::mat4 model = glm::mat4(1.0f);
 
     GLuint VAO, VBO, EBO, colorBuffer, vIndex{0};
     Shader *theShader{nullptr};
