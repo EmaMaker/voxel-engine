@@ -50,6 +50,7 @@ int main()
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
 
     SpaceFilling::initLUT();
     chunkmanager::init();
@@ -62,12 +63,12 @@ int main()
         lastFrame = currentFrame;
 
         // FPS Counter
-        // frames++;
-        // if(currentFrame - lastFPSFrame >= 1.0f){
-        //     std::cout << "FPS: " << frames << std::endl;
-        //     frames = 0;
-        //     lastFPSFrame = currentFrame;
-        // }
+        frames++;
+        if(currentFrame - lastFPSFrame >= 1.0f){
+            std::cout << "FPS: " << frames << " Frametime: " << deltaTime << std::endl;
+            frames = 0;
+            lastFPSFrame = currentFrame;
+        }
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

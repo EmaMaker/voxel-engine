@@ -99,10 +99,10 @@ void ChunkMesh::mesh()
                 {
                     for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++)
                     {
-                        Block b1 = (x[dim] >= 0) ? blocks[HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]]: Block::NULLBLK;
+                        Block b1 = (x[dim] >= 0) ? blocks[HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]] : Block::NULLBLK;
                         Block b2 = (x[dim] < CHUNK_SIZE - 1)
                                        ? blocks[HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]
-                                       : Block::NULLBLK; 
+                                       : Block::NULLBLK;
 
                         // This is the original line taken from rob's code, readapted (replace voxelFace
                         // with b1 and b2).
@@ -263,23 +263,25 @@ void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight
     vertices.push_back(topRight.y);
     vertices.push_back(topRight.z);
 
-    indices.push_back(vIndex + 2);
-    indices.push_back(vIndex + 3);
-    indices.push_back(vIndex + 1);
-    indices.push_back(vIndex + 1);
-    indices.push_back(vIndex);
-    indices.push_back(vIndex + 2);
+    if (backFace)
+    {   
+        indices.push_back(vIndex + 2);
+        indices.push_back(vIndex);
+        indices.push_back(vIndex + 1);
+        indices.push_back(vIndex + 1);
+        indices.push_back(vIndex + 3);
+        indices.push_back(vIndex + 2);
+    }
+    else
+    {
+        indices.push_back(vIndex + 2);
+        indices.push_back(vIndex + 3);
+        indices.push_back(vIndex + 1);
+        indices.push_back(vIndex + 1);
+        indices.push_back(vIndex);
+        indices.push_back(vIndex + 2);
+    }
     vIndex += 4;
-    // }
-    // else
-    // {
-    //     indices.push_back(i + 2);
-    //     indices.push_back(i + 3);
-    //     indices.push_back(i + 1);
-    //     indices.push_back(i + 1);
-    //     indices.push_back(i);
-    //     indices.push_back(i + 2);
-    // }
 
     // ugly switch case
     GLfloat r, g, b;
