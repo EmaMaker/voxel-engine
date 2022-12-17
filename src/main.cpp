@@ -10,6 +10,7 @@
 #include "chunkmanager.hpp"
 #include "main.hpp"
 #include "spacefilling.hpp"
+#include "utils.hpp"
 
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -50,9 +51,9 @@ int main()
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
+    glEnable(GL_CULL_FACE); // GL_BACK GL_CCW by default
 
-    SpaceFilling::initLUT();
+    // SpaceFilling::initLUT();
     chunkmanager::init();
 
     while (!glfwWindowShouldClose(window))
@@ -64,7 +65,8 @@ int main()
 
         // FPS Counter
         frames++;
-        if(currentFrame - lastFPSFrame >= 1.0f){
+        if (currentFrame - lastFPSFrame >= 1.0f)
+        {
             std::cout << "FPS: " << frames << " Frametime: " << deltaTime << std::endl;
             frames = 0;
             lastFPSFrame = currentFrame;

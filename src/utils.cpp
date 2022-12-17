@@ -7,13 +7,12 @@ bool utils::withinDistance(int startx, int starty, int startz, int x, int y, int
     // https://stackoverflow.com/questions/20266201/3d-array-1d-flat-indexing
     //flatten 3d coords to 1d array cords
 int utils::coord3DTo1D (int x, int y, int z, int maxX, int maxY, int maxZ){
-        return x + maxX * (y + z * maxY);
+        return y + maxY * (x + z * maxX);
     }
 
-std::array<int, 3> utils::coord1DTo3D(int idx, int maxX, int maxY, int mazZ){
-        int z = idx / (maxX * maxY);
-        idx -= (z * maxX* maxY);
-        int y = idx / maxX;
-        int x = idx % maxX;
-        return std::array<int, 3> {x, y, z};
+void utils::coord1DTo3D(int idx, int maxX, int maxY, int mazZ, int* x, int* y, int* z){
+        *z = idx / (maxX * maxY);
+        idx -= (*z * maxX* maxY);
+        *x = idx / maxY;
+        *y = idx % maxY;
     }

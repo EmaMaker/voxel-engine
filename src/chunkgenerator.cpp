@@ -4,7 +4,6 @@
 
 #include "block.hpp"
 #include "chunkgenerator.hpp"
-#include "globals.hpp"
 #include "OpenSimplexNoise.h"
 #include "utils.hpp"
 
@@ -44,40 +43,47 @@ void generateNoise(Chunk::Chunk *chunk)
     Block block_prev{Block::AIR};
     int block_prev_start{0};
 
-    // A space filling curve is continuous, so there is no particular order
-    for (int s = 0; s < CHUNK_VOLUME; s++)
+    // The order of iteration MUST RESPECT the order in which the array is transformed from 3d to 1d
+    for (int k = 0; k < CHUNK_SIZE; k++)
     {
-
-        int x = HILBERT_XYZ_DECODE[s][0] + CHUNK_SIZE * chunk->getPosition().x;
-        int y = HILBERT_XYZ_DECODE[s][1] + CHUNK_SIZE * chunk->getPosition().y;
-        int z = HILBERT_XYZ_DECODE[s][2] + CHUNK_SIZE * chunk->getPosition().z;
-        int d2 = HILBERT_XYZ_DECODE[s][0] * CHUNK_SIZE + HILBERT_XYZ_DECODE[s][2];
-
-        if (grassNoiseLUT[d2] == -1)
-            grassNoiseLUT[d2] = GRASS_OFFSET + (int)((0.5 + noiseGen1.eval(x * NOISE_GRASS_X_MULT, z * NOISE_GRASS_Z_MULT) * NOISE_GRASS_MULT));
-        if (dirtNoiseLUT[d2] == -1)
-            dirtNoiseLUT[d2] = NOISE_DIRT_MIN + (int)((0.5 + noiseGen2.eval(x * NOISE_DIRT_X_MULT, z * NOISE_DIRT_Z_MULT) * NOISE_DIRT_MULT));
-
-        int grassNoise = grassNoiseLUT[d2];
-        int dirtNoise = dirtNoiseLUT[d2];
-        int stoneLevel = grassNoise - dirtNoise;
-
-        if (y < stoneLevel)
-            block = Block::STONE;
-        else if (y >= stoneLevel && y < grassNoise)
-            block = Block::DIRT;
-        else if (y == grassNoise)
-            block = Block::GRASS;
-        else
-            block = Block::AIR;
-
-        if (block != block_prev)
+            for (int i = 0; i < CHUNK_SIZE; i++)
         {
-            chunk->setBlocks(block_prev_start, s, block_prev);
-            block_prev_start = s;
-        }
+        for (int j = 0; j < CHUNK_SIZE; j++)
+            {
+                int x = i + CHUNK_SIZE * chunk->getPosition().x;
+                int y = j + CHUNK_SIZE * chunk->getPosition().y;
+                int z = k + CHUNK_SIZE * chunk->getPosition().z;
+                int d2 = k * CHUNK_SIZE + i;
 
-        block_prev = block;
+                if (grassNoiseLUT[d2] == -1)
+                    grassNoiseLUT[d2] = GRASS_OFFSET + (int)((0.5 + noiseGen1.eval(x * NOISE_GRASS_X_MULT, z * NOISE_GRASS_Z_MULT) * NOISE_GRASS_MULT));
+                if (dirtNoiseLUT[d2] == -1)
+                    dirtNoiseLUT[d2] = NOISE_DIRT_MIN + (int)((0.5 + noiseGen2.eval(x * NOISE_DIRT_X_MULT, z * NOISE_DIRT_Z_MULT) * NOISE_DIRT_MULT));
+
+                int grassNoise = grassNoiseLUT[d2];
+                int dirtNoise = dirtNoiseLUT[d2];
+                int stoneLevel = grassNoise - dirtNoise;
+
+                if (y < stoneLevel)
+                    block = Block::STONE;
+                else if (y >= stoneLevel && y < grassNoise)
+                    block = Block::DIRT;
+                else if (y == grassNoise)
+                    block = Block::GRASS;
+                else
+                    block = Block::AIR;
+
+                int index = Chunk::coord3DTo1D(i, j, k);
+                int min = index > block_prev_start ? block_prev_start : index, max = index > block_prev_start ? index : block_prev_start;
+                if (block != block_prev)
+                {
+                    chunk->setBlocks(block_prev_start, index, block_prev);
+                    block_prev_start = index;
+                }
+
+                block_prev = block;
+            }
+        }
     }
 
     chunk->setBlocks(block_prev_start, CHUNK_VOLUME, block_prev);

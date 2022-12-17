@@ -188,16 +188,15 @@ namespace SpaceFilling
 
     void initLUT()
     {
-        uint32_t morton, hilbert,j;
+        uint32_t morton, hilbert;
         for (uint32_t i = 0; i < CHUNK_SIZE; i++)
         {
-            for (uint32_t y = 0; y < CHUNK_SIZE; y++)
+            for (uint32_t j = 0; j < CHUNK_SIZE; j++)
             {
                 for (uint32_t k = 0; k < CHUNK_SIZE; k++)
                 {
-                    j = CHUNK_SIZE - 1 - y;
                     morton = Morton_3D_Encode_10bit(i, j, k);
-                    hilbert = MortonToHilbert3D(morton, 2); // 4 hilbert bits
+                    hilbert = MortonToHilbert3D(morton, 4); // 4 hilbert bits
 
                     MORTON_XYZ_ENCODE[i][j][k] = morton;
                     MORTON_XYZ_DECODE[morton][0] = i;
