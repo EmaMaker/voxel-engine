@@ -10,6 +10,11 @@
 
 ChunkMesh::~ChunkMesh()
 {
+    if(this->VAO) glDeleteVertexArrays(1, &(this->VAO));
+    if(this->EBO) glDeleteBuffers(1, &(this->EBO));
+    if(this->VBO) glDeleteBuffers(1, &(this->VBO));
+    if(this->colorBuffer) glDeleteBuffers(1, &(this->colorBuffer));
+
     delete this->chunk;
     delete (this->theShader);
 }
@@ -202,7 +207,7 @@ void ChunkMesh::mesh()
     if (blocks)
         delete blocks;
 
-    if (vertices.size() > 0)
+    if (vIndex > 0)
     {
 
         // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
@@ -223,15 +228,24 @@ void ChunkMesh::mesh()
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 
+        // glDisableVertexAttribArray(0);
+        // glDisableVertexAttribArray(1);
         glBindVertexArray(0);
+
+        vIndex = (GLuint)(indices.size());
+        
+        vertices.clear();
+        indices.clear();
+        colors.clear();
     }
+        
 }
 
 void ChunkMesh::draw()
 {
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
-    if (vertices.size() > 0)
+    if (vIndex > 0)
     {
         theShader->use();
         theShader->setMat4("model", this->model);
@@ -239,7 +253,7 @@ void ChunkMesh::draw()
         theShader->setMat4("projection", theCamera.getProjection());
 
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLuint>(indices.size()), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, vIndex , GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
 }

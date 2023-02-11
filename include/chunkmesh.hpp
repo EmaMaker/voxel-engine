@@ -31,7 +31,7 @@ private:
     std::vector<GLuint> indices;
 
 
-    GLuint VAO, VBO, EBO, colorBuffer, vIndex{0};
+    GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
     Shader *theShader{nullptr};
 };
 
