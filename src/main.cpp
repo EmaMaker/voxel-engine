@@ -1,15 +1,17 @@
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
-#define GLOBALS_DEFINER
-#include "globals.hpp"
-#undef GLOBALS_DEFINER
 
 #include <iostream>
 
 #include "chunkmanager.hpp"
 #include "main.hpp"
 #include "spacefilling.hpp"
+#include "shader.hpp"
+
+#define GLOBALS_DEFINER
+#include "globals.hpp"
+#undef GLOBALS_DEFINER
 
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -54,6 +56,8 @@ int main()
 
     SpaceFilling::initLUT();
     chunkmanager::init();
+
+    theShader = new Shader{"shaders/shader.vs", "shaders/shader.fs"};
 
     while (!glfwWindowShouldClose(window))
     {

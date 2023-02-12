@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "chunk.hpp"
+#include "globals.hpp"
 #include "shader.hpp"
+#include <string>
 
 class ChunkMesh
 {
@@ -20,7 +22,6 @@ public:
     void draw();
 
     Chunk::Chunk *chunk{nullptr};
-    // static Shader theShader("shaders/shader.vs", "shaders/shader.fs");
     glm::mat4 model = glm::mat4(1.0f);
 
 private:
@@ -32,7 +33,6 @@ private:
 
 
     GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
-    Shader *theShader{nullptr};
 };
 
 #endif

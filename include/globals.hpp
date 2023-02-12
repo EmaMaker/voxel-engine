@@ -13,6 +13,7 @@
 #define RENDER_DISTANCE 8
 
 extr Camera theCamera;
+extr Shader* theShader;
 
 extr uint32_t MORTON_XYZ_ENCODE[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
 extr uint32_t MORTON_XYZ_DECODE[CHUNK_VOLUME][3];

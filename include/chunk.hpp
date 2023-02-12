@@ -11,6 +11,7 @@
 #include "block.hpp"
 #include "spacefilling.hpp"
 #include "intervalmap.hpp"
+#include "shader.hpp"
 
 #define CHUNK_SIZE 16
 #define CHUNK_VOLUME (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)

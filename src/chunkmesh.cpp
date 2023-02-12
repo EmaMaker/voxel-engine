@@ -16,8 +16,7 @@ ChunkMesh::~ChunkMesh()
     if(this->colorBuffer) glDeleteBuffers(1, &(this->colorBuffer));
 
     delete this->chunk;
-    delete (this->theShader);
-}
+    }
 
 ChunkMesh::ChunkMesh(Chunk::Chunk *c)
 {
@@ -28,7 +27,6 @@ ChunkMesh::ChunkMesh(Chunk::Chunk *c)
     glGenBuffers(1, &(this->VBO));
     glGenBuffers(1, &(this->EBO));
 
-    this->theShader = new Shader{"shaders/shader.vs", "shaders/shader.fs"};
     this->model = glm::translate(model, (float)CHUNK_SIZE * c->getPosition());
 
     // std::cout << "CHUNK MESH " << c << std::endl;
