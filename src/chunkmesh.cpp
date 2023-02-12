@@ -10,13 +10,13 @@
 
 ChunkMesh::~ChunkMesh()
 {
-    if(this->VAO) glDeleteVertexArrays(1, &(this->VAO));
-    if(this->EBO) glDeleteBuffers(1, &(this->EBO));
-    if(this->VBO) glDeleteBuffers(1, &(this->VBO));
-    if(this->colorBuffer) glDeleteBuffers(1, &(this->colorBuffer));
+    // if(this->VAO) glDeleteVertexArrays(1, &(this->VAO));
+    // if(this->EBO) glDeleteBuffers(1, &(this->EBO));
+    // if(this->VBO) glDeleteBuffers(1, &(this->VBO));
+    // if(this->colorBuffer) glDeleteBuffers(1, &(this->colorBuffer));
 
-    delete this->chunk;
-    }
+    // if(this->chunk) delete this->chunk;
+}
 
 ChunkMesh::ChunkMesh(Chunk::Chunk *c)
 {
