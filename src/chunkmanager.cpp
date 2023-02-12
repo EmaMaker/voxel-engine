@@ -5,14 +5,14 @@
 #include "chunk.hpp"
 #include "chunkgenerator.hpp"
 #include "chunkmanager.hpp"
-#include "chunkmesh.hpp"
+#include "chunkmesher.hpp"
 #include "globals.hpp"
 
 #include <iostream>
 #include <unordered_map>
 #include <string>
 
-std::unordered_map<std::uint32_t, ChunkMesh> chunks;
+std::unordered_map<std::uint32_t, Chunk::Chunk*> chunks;
 
 namespace chunkmanager
 {
@@ -88,21 +88,22 @@ namespace chunkmanager
         // std::cout << "Checking" << i << ", " << j  << ", " << k <<std::endl;
         if (chunks.find(index) == chunks.end())
         {
-            chunks.insert(std::make_pair(index, ChunkMesh(new Chunk::Chunk(glm::vec3(i, j, k)))));
-            generateChunk(chunks.at(index).chunk);
-            chunks.at(index).mesh();
+            chunks.insert(std::make_pair(index, new Chunk::Chunk(glm::vec3(i, j, k))));
+            generateChunk(chunks.at(index));
+            mesh(chunks.at(index));
             // std::cout << "Creating new chunk" << i << ", " << j  << ", " << k <<std::endl;
         }
         else
         {
-            glm::vec3 chunk = chunks.at(index).chunk->getPosition() /*+ glm::vec3(static_cast<float>(CHUNK_SIZE))*/;
+            glm::vec3 chunk = chunks.at(index)->getPosition() /*+ glm::vec3(static_cast<float>(CHUNK_SIZE))*/;
+            glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE)*chunk);
 
             total++;
 
             int a{0};
             for (int i = 0; i < 8; i++)
             {
-                glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * chunks.at(index).model);
+                glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * model);
                 vertex = glm::normalize(vertex);
 
                 a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
@@ -110,14 +111,14 @@ namespace chunkmanager
             if (a)
             {
                 toGpu++;
-                chunks.at(index).draw();
+                draw(chunks.at(index), model);
             }
         }
     }
 
     void destroy()
     {
-        // for (auto &n : chunks)
-        //     delete n.second;
+        for (auto &n : chunks)
+            delete n.second;
     }
 };

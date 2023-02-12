@@ -3,36 +3,17 @@
 
 #include "block.hpp"
 #include "chunk.hpp"
-#include "chunkmesh.hpp"
+#include "chunkmesher.hpp"
 #include "globals.hpp"
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
-ChunkMesh::~ChunkMesh()
-{
-    // if(this->VAO) glDeleteVertexArrays(1, &(this->VAO));
-    // if(this->EBO) glDeleteBuffers(1, &(this->EBO));
-    // if(this->VBO) glDeleteBuffers(1, &(this->VBO));
-    // if(this->colorBuffer) glDeleteBuffers(1, &(this->colorBuffer));
+std::vector<GLfloat> vertices;
+std::vector<GLfloat> colors;
+std::vector<GLuint> indices;
+GLuint vIndex{0};
 
-    // if(this->chunk) delete this->chunk;
-}
-
-ChunkMesh::ChunkMesh(Chunk::Chunk *c)
-{
-    this->chunk = c;
-
-    glGenVertexArrays(1, &(this->VAO));
-    glGenBuffers(1, &(this->colorBuffer));
-    glGenBuffers(1, &(this->VBO));
-    glGenBuffers(1, &(this->EBO));
-
-    this->model = glm::translate(model, (float)CHUNK_SIZE * c->getPosition());
-
-    // std::cout << "CHUNK MESH " << c << std::endl;
-}
-
-void ChunkMesh::mesh()
+void mesh(Chunk::Chunk* chunk)
 {
 
     /*
@@ -60,12 +41,11 @@ void ChunkMesh::mesh()
     indices.clear();
     vIndex = 0;
 
+    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
+
     // convert tree to array since it is easier to work with it
     int length{0};
-    Block *blocks = this->chunk->getBlocksArray(&length);
-
-    if (length == 0)
-        return;
+    Block *blocks = chunk->getBlocksArray(&length);
 
     int k, l, u, v, w, h, n, j, i;
     int x[]{0, 0, 0};
@@ -209,18 +189,18 @@ void ChunkMesh::mesh()
     {
 
         // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-        glBindVertexArray(VAO);
+        glBindVertexArray(chunk->VAO);
 
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, chunk->VBO);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &(vertices[0]), GL_STATIC_DRAW);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), &(indices[0]), GL_STATIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
         glEnableVertexAttribArray(0);
 
-        glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, chunk->colorBuffer);
         glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &(colors[0]), GL_STATIC_DRAW);
 
         glEnableVertexAttribArray(1);
@@ -230,7 +210,7 @@ void ChunkMesh::mesh()
         // glDisableVertexAttribArray(1);
         glBindVertexArray(0);
 
-        vIndex = (GLuint)(indices.size());
+        chunk->vIndex = (GLuint)(indices.size());
         
         vertices.clear();
         indices.clear();
@@ -239,24 +219,24 @@ void ChunkMesh::mesh()
         
 }
 
-void ChunkMesh::draw()
+void draw(Chunk::Chunk* chunk, glm::mat4 model)
 {
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
-    if (vIndex > 0)
+    if(!chunk->getState(Chunk::CHUNK_STATE_EMPTY))
     {
         theShader->use();
-        theShader->setMat4("model", this->model);
+        theShader->setMat4("model", model);
         theShader->setMat4("view", theCamera.getView());
         theShader->setMat4("projection", theCamera.getProjection());
 
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, vIndex , GL_UNSIGNED_INT, 0);
+        glBindVertexArray(chunk->VAO);
+        glDrawElements(GL_TRIANGLES, chunk->vIndex , GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
 }
 
-void ChunkMesh::quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
+void quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
 {
 
     vertices.push_back(bottomLeft.x);

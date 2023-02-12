@@ -46,6 +46,9 @@ namespace Chunk
         IntervalMap<Block>& getBlocks() { return (this->blocks); }
         Block* getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
+    public:
+        GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
+
     private:
         glm::vec3 position{};
         IntervalMap<Block> blocks{};

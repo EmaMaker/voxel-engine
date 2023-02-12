@@ -18,11 +18,21 @@ namespace Chunk
     {
         this->position = pos;
         this->blocks.insert(0, CHUNK_VOLUME, Block::AIR);
+        this->setState(CHUNK_STATE_EMPTY, true);
         // std::cout << "CHUNK" << std::endl;
+                    glGenVertexArrays(1, &(this->VAO));
+            glGenBuffers(1, &(this->colorBuffer));
+            glGenBuffers(1, &(this->VBO));
+            glGenBuffers(1, &(this->EBO));
+
     }
 
     Chunk ::~Chunk()
     {
+        glDeleteVertexArrays(1, &(this->VAO));
+        glDeleteBuffers(1, &(this->colorBuffer));
+        glDeleteBuffers(1, &(this->VBO));
+        glDeleteBuffers(1, &(this->EBO));
     }
 
     Block Chunk::getBlock(int x, int y, int z)
@@ -37,6 +47,7 @@ namespace Chunk
     }
     
     void Chunk::setBlocks(int start, int end, Block b){
+        if(b != Block::AIR) this->setState(CHUNK_STATE_EMPTY, false);
         this->blocks.insert(start < 0 ? 0 : start, end >= CHUNK_VOLUME ? CHUNK_VOLUME : end, b);
     }
 
