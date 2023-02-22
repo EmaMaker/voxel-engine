@@ -75,6 +75,8 @@ public:
         const auto &end = std::prev(treemap.end());
 
         *length = end->first;
+        if(*length == 0) return nullptr;
+        
         // std::cout << "Length: " << *length << "\n";
         V *arr{new V[*length]};
 

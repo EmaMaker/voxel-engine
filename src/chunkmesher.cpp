@@ -41,12 +41,13 @@ void mesh(Chunk::Chunk* chunk)
     indices.clear();
     vIndex = 0;
 
-    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
+    // if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
 
     // convert tree to array since it is easier to work with it
     int length{0};
     Block *blocks = chunk->getBlocksArray(&length);
-
+    if(length == 0) return;
+    
     int k, l, u, v, w, h, n, j, i;
     int x[]{0, 0, 0};
     int q[]{0, 0, 0};
@@ -182,9 +183,6 @@ void mesh(Chunk::Chunk* chunk)
         }
     }
 
-    if (blocks)
-        delete blocks;
-
     if (vIndex > 0)
     {
 
@@ -216,6 +214,7 @@ void mesh(Chunk::Chunk* chunk)
         indices.clear();
         colors.clear();
     }
+    delete[] blocks;
         
 }
 
