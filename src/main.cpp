@@ -52,10 +52,8 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
-
-    // Create an invisible window for the secondary thread
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    GLFWwindow* chunkmanager_context = glfwCreateWindow(640, 480, "", NULL, NULL);
+    
+    std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
     SpaceFilling::initLUT();
     chunkmanager::init();
