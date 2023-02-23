@@ -32,6 +32,12 @@ public:
             this->cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
             this->cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+            this->cameraPos += cameraSpeed * cameraUp;
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+            this->cameraPos -= cameraSpeed * cameraUp;
+
 
         direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
         direction.y = sin(glm::radians(pitch));
@@ -92,7 +98,7 @@ public:
     }
 
 private:
-    glm::vec3 cameraPos = glm::vec3(static_cast<float>(CHUNK_SIZE)*24, 80.0f, static_cast<float>(CHUNK_SIZE)*24);
+    glm::vec3 cameraPos = glm::vec3(static_cast<float>(CHUNK_SIZE)*24, 40.0f, static_cast<float>(CHUNK_SIZE)*24);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.0f);
