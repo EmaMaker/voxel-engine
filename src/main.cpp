@@ -11,7 +11,6 @@
 
 #define GLOBALS_DEFINER
 #include "globals.hpp"
-#undef GLOBALS_DEFINER
 
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -54,6 +53,10 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
 
+    // Create an invisible window for the secondary thread
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* chunkmanager_context = glfwCreateWindow(640, 480, "", NULL, NULL);
+
     SpaceFilling::initLUT();
     chunkmanager::init();
 
@@ -91,7 +94,9 @@ int main()
         glfwPollEvents();
     }
 
+    delete theShader;
     chunkmanager::destroy();
+
     glfwTerminate();
     return 0;
 }
