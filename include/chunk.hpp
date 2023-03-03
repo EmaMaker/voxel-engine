@@ -7,6 +7,8 @@
 
 #include <array>
 #include <bitset>
+#include <mutex>
+#include <vector>
 
 #include "block.hpp"
 #include "spacefilling.hpp"
@@ -22,8 +24,9 @@ namespace Chunk
 
     constexpr uint8_t CHUNK_STATE_GENERATED = 1;
     constexpr uint8_t CHUNK_STATE_MESHED = 2;
-    constexpr uint8_t CHUNK_STATE_LOADED = 3;
-    constexpr uint8_t CHUNK_STATE_EMPTY = 4;
+    constexpr uint8_t CHUNK_STATE_MESH_LOADED = 3;
+    constexpr uint8_t CHUNK_STATE_LOADED = 4;
+    constexpr uint8_t CHUNK_STATE_EMPTY = 7;
 
     int coord3DTo1D(int x, int y, int z);
 
@@ -48,11 +51,17 @@ namespace Chunk
 
     public:
         GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
+        
+        std::mutex mutex_state;
+
+	std::vector<GLfloat> vertices;
+	std::vector<GLfloat> colors;
+	std::vector<GLuint> indices;
 
     private:
         glm::vec3 position{};
         IntervalMap<Block> blocks{};
-
+        
         std::bitset<8> state{0};
     };
 };

@@ -8,11 +8,8 @@
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
-std::vector<GLfloat> vertices;
-std::vector<GLfloat> colors;
-std::vector<GLuint> indices;
-GLuint vIndex{0};
-
+namespace chunkmesher{
+    
 void mesh(Chunk::Chunk* chunk)
 {
 
@@ -37,11 +34,11 @@ void mesh(Chunk::Chunk* chunk)
      * containing all the quads. In the future, maybe translucent blocks and liquids
      * will need a separate mesh, but still on a per-chunk basis
      */
-    vertices.clear();
-    indices.clear();
-    vIndex = 0;
+    chunk->vertices.clear();
+    chunk->indices.clear();
+    chunk->vIndex = 0;
 
-    // if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
+    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
 
     // convert tree to array since it is easier to work with it
     int length{0};
@@ -149,7 +146,7 @@ void mesh(Chunk::Chunk* chunk)
                                 dv[2] = 0;
                                 dv[v] = h;
 
-                                quad(glm::vec3(x[0], x[1], x[2]),
+                                quad(chunk, glm::vec3(x[0], x[1], x[2]),
                                      glm::vec3(x[0] + du[0], x[1] + du[1], x[2] + du[2]),
                                      glm::vec3(x[0] + du[0] + dv[0], x[1] + du[1] + dv[1],
                                                x[2] + du[2] + dv[2]),
@@ -183,46 +180,15 @@ void mesh(Chunk::Chunk* chunk)
         }
     }
 
-    if (vIndex > 0)
-    {
-
-        // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-        glBindVertexArray(chunk->VAO);
-
-        glBindBuffer(GL_ARRAY_BUFFER, chunk->VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), &(vertices[0]), GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), &(indices[0]), GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-        glEnableVertexAttribArray(0);
-
-        glBindBuffer(GL_ARRAY_BUFFER, chunk->colorBuffer);
-        glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(GLfloat), &(colors[0]), GL_STATIC_DRAW);
-
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-
-        // glDisableVertexAttribArray(0);
-        // glDisableVertexAttribArray(1);
-        glBindVertexArray(0);
-
-        chunk->vIndex = (GLuint)(indices.size());
-        
-        vertices.clear();
-        indices.clear();
-        colors.clear();
-    }
     delete[] blocks;
-        
+    
 }
 
 void draw(Chunk::Chunk* chunk, glm::mat4 model)
 {
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
-    if(!chunk->getState(Chunk::CHUNK_STATE_EMPTY))
+    if(chunk->getState(Chunk::CHUNK_STATE_MESH_LOADED))
     {
         theShader->use();
         theShader->setMat4("model", model);
@@ -235,44 +201,44 @@ void draw(Chunk::Chunk* chunk, glm::mat4 model)
     }
 }
 
-void quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
+void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
 {
 
-    vertices.push_back(bottomLeft.x);
-    vertices.push_back(bottomLeft.y);
-    vertices.push_back(bottomLeft.z);
+    chunk->vertices.push_back(bottomLeft.x);
+    chunk->vertices.push_back(bottomLeft.y);
+    chunk->vertices.push_back(bottomLeft.z);
 
-    vertices.push_back(bottomRight.x);
-    vertices.push_back(bottomRight.y);
-    vertices.push_back(bottomRight.z);
+    chunk->vertices.push_back(bottomRight.x);
+    chunk->vertices.push_back(bottomRight.y);
+    chunk->vertices.push_back(bottomRight.z);
 
-    vertices.push_back(topLeft.x);
-    vertices.push_back(topLeft.y);
-    vertices.push_back(topLeft.z);
+    chunk->vertices.push_back(topLeft.x);
+    chunk->vertices.push_back(topLeft.y);
+    chunk->vertices.push_back(topLeft.z);
 
-    vertices.push_back(topRight.x);
-    vertices.push_back(topRight.y);
-    vertices.push_back(topRight.z);
+    chunk->vertices.push_back(topRight.x);
+    chunk->vertices.push_back(topRight.y);
+    chunk->vertices.push_back(topRight.z);
 
     if (backFace)
     {   
-        indices.push_back(vIndex + 2);
-        indices.push_back(vIndex);
-        indices.push_back(vIndex + 1);
-        indices.push_back(vIndex + 1);
-        indices.push_back(vIndex + 3);
-        indices.push_back(vIndex + 2);
+        chunk->indices.push_back(chunk->vIndex + 2);
+        chunk->indices.push_back(chunk->vIndex);
+        chunk->indices.push_back(chunk->vIndex + 1);
+        chunk->indices.push_back(chunk->vIndex + 1);
+        chunk->indices.push_back(chunk->vIndex + 3);
+        chunk->indices.push_back(chunk->vIndex + 2);
     }
     else
     {
-        indices.push_back(vIndex + 2);
-        indices.push_back(vIndex + 3);
-        indices.push_back(vIndex + 1);
-        indices.push_back(vIndex + 1);
-        indices.push_back(vIndex);
-        indices.push_back(vIndex + 2);
+        chunk->indices.push_back(chunk->vIndex + 2);
+        chunk->indices.push_back(chunk->vIndex + 3);
+        chunk->indices.push_back(chunk->vIndex + 1);
+        chunk->indices.push_back(chunk->vIndex + 1);
+        chunk->indices.push_back(chunk->vIndex);
+        chunk->indices.push_back(chunk->vIndex + 2);
     }
-    vIndex += 4;
+    chunk->vIndex += 4;
 
     // ugly switch case
     GLfloat r, g, b;
@@ -317,8 +283,9 @@ void quad(glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3
 
     for (int i = 0; i < 4; i++)
     {
-        colors.push_back(r);
-        colors.push_back(g);
-        colors.push_back(b);
+        chunk->colors.push_back(r);
+        chunk->colors.push_back(g);
+        chunk->colors.push_back(b);
     }
 }
+};

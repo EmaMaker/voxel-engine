@@ -9,31 +9,129 @@
 #include "globals.hpp"
 
 #include <iostream>
-#include <unordered_map>
+#include <mutex>
+#include <set>
 #include <string>
+#include <unordered_map>
+#include <thread>
 
-std::unordered_map<std::uint32_t, Chunk::Chunk*> chunks;
+std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
 
 namespace chunkmanager
 {
-    void init()
+    std::mutex mutex_queue_generate;
+    std::set<Chunk::Chunk *> to_generate;
+    std::set<Chunk::Chunk *> to_generate_shared;
+
+    std::mutex mutex_queue_mesh;
+    std::set<Chunk::Chunk *> to_mesh;
+    std::set<Chunk::Chunk *> to_mesh_shared;
+
+    void mesh()
     {
+        while (true)
+        {
+            if (mutex_queue_mesh.try_lock())
+            {
+                for (const auto &c : to_mesh)
+                {
+                    if (c->mutex_state.try_lock())
+                    {
+                        chunkmesher::mesh(c);
+                        c->setState(Chunk::CHUNK_STATE_MESHED, true);
+                        c->mutex_state.unlock();
+                    }
+                }
+                to_mesh.clear();
+                mutex_queue_mesh.unlock();
+            }
+
+            // while (!to_mesh.empty())
+            // {
+
+            //     Chunk::Chunk *c = to_mesh.front();
+
+            //     if (c->mutex_state.try_lock())
+            //     {
+            //         chunkmesher::mesh(c);
+            //         // std::cout << "Meshing chunk at " << c->getPosition().x << ", " << c->getPosition().y << ", " << c->getPosition().z << "\n";
+            //         c->setState(Chunk::CHUNK_STATE_MESHED, true);
+            //         c->mutex_state.unlock();
+            //         to_mesh.pop();
+            //     }
+            // }
+            // if(mutex_queue_mesh.try_lock()){
+            // to_mesh = to_mesh_shared;
+            // mutex_queue_mesh.unlock();
+            // }
+            // std::cout << "To mesh empty\n";
+        }
+    }
+
+    void generate()
+    {
+        while (true)
+        {
+            if (mutex_queue_generate.try_lock())
+            {
+                for (const auto &c : to_generate)
+                {
+                    if (c->mutex_state.try_lock())
+                    {
+                        generateChunk(c);
+                        c->setState(Chunk::CHUNK_STATE_GENERATED, true);
+                        c->mutex_state.unlock();
+                    }
+                }
+                to_generate.clear();
+                mutex_queue_generate.unlock();
+            }
+        }
+    }
+
+    std::thread initMeshThread()
+    {
+        std::thread mesh_thread(mesh);
+        return mesh_thread;
+    }
+    std::thread initGenThread()
+    {
+        std::thread gen_thread(generate);
+        return gen_thread;
     }
 
     int total{0}, toGpu{0};
     int rr{RENDER_DISTANCE * RENDER_DISTANCE};
+    uint8_t f = 0;
+
     void update(float deltaTime)
     {
+        f = 0;
+        f |= mutex_queue_generate.try_lock();
+        f |= mutex_queue_mesh.try_lock() << 1;
+
         // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
         // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
         glm::vec3 cameraPos = theCamera.getPos();
 
         int chunkX{(static_cast<int>(cameraPos.x)) / CHUNK_SIZE}, chunkY{(static_cast<int>(cameraPos.y)) / CHUNK_SIZE}, chunkZ{(static_cast<int>(cameraPos.z)) / CHUNK_SIZE};
-        
+
         // Possible change: coordinates everything at the origin, then translate later?
         // Step 1. Eq. of a circle. Fix the x coordinate, get the 2 possible y's
-        for (int x = chunkX - RENDER_DISTANCE; x <= chunkX + RENDER_DISTANCE; x++)
+        int xp{0}, x{0};
+        bool b = true;
+        while (xp <= RENDER_DISTANCE)
         {
+            if (b)
+            {
+                x = chunkX + xp;
+            }
+            else
+            {
+                x = chunkX - xp;
+            }
+            // for (int x = chunkX - RENDER_DISTANCE; x < chunkX + RENDER_DISTANCE; x++)
+            // {
 
             // Possible optimization: use sqrt lookup
             int y1 = sqrt((rr) - (x - chunkX) * (x - chunkX)) + chunkY;
@@ -49,7 +147,6 @@ namespace chunkmanager
 
                 for (int z = z2; z <= z1; z++)
                 {
-
                     uint16_t i{}, j{}, k{};
 
                     if (x < 0)
@@ -77,42 +174,138 @@ namespace chunkmanager
                     chunkmanager::updateChunk(in, i, j, k);
                 }
             }
+
+            if (!b)
+            {
+                xp++;
+                b = true;
+            }
+            else
+            {
+                b = false;
+            }
         }
-        std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
-        total = 0;
-        toGpu = 0;
+        // std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
+        // total = 0;
+        // toGpu = 0;
+
+        if ((f & 1))
+            mutex_queue_generate.unlock();
+        if ((f & 2))
+            mutex_queue_mesh.unlock();
     }
 
+    // Generation and meshing happen in two separate threads from the main one
+    // Chunk states are used to decide which actions need to be done on the chunk and queues+mutexes to pass the chunks between the threads
+    // Uploading data to GPU still needs to be done in the main thread, or another OpenGL context needs to be opened, which further complicates stuff
+    // For now using frustum culling decreases performance (somehow)
     void updateChunk(uint32_t index, uint16_t i, uint16_t j, uint16_t k)
     {
-        // std::cout << "Checking" << i << ", " << j  << ", " << k <<std::endl;
         if (chunks.find(index) == chunks.end())
         {
-            chunks.insert(std::make_pair(index, new Chunk::Chunk(glm::vec3(i, j, k))));
-            generateChunk(chunks.at(index));
-            mesh(chunks.at(index));
-            // std::cout << "Creating new chunk" << i << ", " << j  << ", " << k <<std::endl;
+            Chunk::Chunk *c = new Chunk::Chunk(glm::vec3(i, j, k));
+            chunks.insert(std::make_pair(index, c));
         }
         else
         {
-            glm::vec3 chunk = chunks.at(index)->getPosition() /*+ glm::vec3(static_cast<float>(CHUNK_SIZE))*/;
-            glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE)*chunk);
+            Chunk::Chunk *c = chunks.at(index);
 
-            total++;
+            if (!(c->mutex_state.try_lock()))
+                return;
 
-            int a{0};
-            for (int i = 0; i < 8; i++)
+            if (!c->getState(Chunk::CHUNK_STATE_GENERATED))
             {
-                glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * model);
-                vertex = glm::normalize(vertex);
-
-                a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
+                if (f & 1)
+                    to_generate.insert(c);
             }
-            if (a)
+            else
             {
-                toGpu++;
-                draw(chunks.at(index), model);
+                if (!c->getState(Chunk::CHUNK_STATE_MESHED))
+                {
+                    if (f & 2)
+                        to_mesh.insert(c);
+                }
+                else
+                {
+                    if (!c->getState(Chunk::CHUNK_STATE_MESH_LOADED))
+                    {
+                        if (c->vIndex > 0)
+                        {
+
+                            // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+                            glBindVertexArray(c->VAO);
+
+                            glBindBuffer(GL_ARRAY_BUFFER, c->VBO);
+                            glBufferData(GL_ARRAY_BUFFER, c->vertices.size() * sizeof(GLfloat), &(c->vertices[0]), GL_STATIC_DRAW);
+
+                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, c->EBO);
+                            glBufferData(GL_ELEMENT_ARRAY_BUFFER, c->indices.size() * sizeof(GLuint), &(c->indices[0]), GL_STATIC_DRAW);
+
+                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+                            glEnableVertexAttribArray(0);
+
+                            glBindBuffer(GL_ARRAY_BUFFER, c->colorBuffer);
+                            glBufferData(GL_ARRAY_BUFFER, c->colors.size() * sizeof(GLfloat), &(c->colors[0]), GL_STATIC_DRAW);
+
+                            glEnableVertexAttribArray(1);
+                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+
+                            // glDisableVertexAttribArray(0);
+                            // glDisableVertexAttribArray(1);
+                            glBindVertexArray(0);
+
+                            c->vIndex = (GLuint)(c->indices.size());
+
+                            c->vertices.clear();
+                            c->indices.clear();
+                            c->colors.clear();
+                        }
+                        c->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
+                    }
+
+                    glm::vec3 chunk = c->getPosition();
+                    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
+                    // chunkmesher::draw(c, model);
+                    total++;
+
+                    int a{0};
+                    for (int i = 0; i < 8; i++)
+                    {
+                        glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * model);
+                        vertex = glm::normalize(vertex);
+
+                        a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
+                    }
+                    if (a)
+                    {
+                        toGpu++;
+                        chunkmesher::draw(c, model);
+                    }
+                }
             }
+
+            // if ((f & 4) == 4)
+            // {
+            //     glm::vec3 chunk = c->getPosition();
+            //     glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
+            //     // chunkmesher::draw(c, model);
+            //     // total++;
+
+            //     // int a{0};
+            //     // for (int i = 0; i < 8; i++)
+            //     // {
+            //     //     glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * model);
+            //     //     vertex = glm::normalize(vertex);
+
+            //     //     a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
+            //     // }
+            //     // if (a)
+            //     // {
+            //     //     toGpu++;
+            //     chunkmesher::draw(c, model);
+            //     // }
+            // }
+            c->mutex_state.unlock();
         }
     }
 

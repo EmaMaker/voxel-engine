@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <thread>
 
 #include "chunkmanager.hpp"
 #include "main.hpp"
@@ -52,11 +53,12 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
-    
+
     std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
     SpaceFilling::initLUT();
-    chunkmanager::init();
+    std::thread genThread = chunkmanager::initGenThread();
+    std::thread meshThread = chunkmanager::initMeshThread();
 
     theShader = new Shader{"shaders/shader.vs", "shaders/shader.fs"};
 
@@ -93,6 +95,9 @@ int main()
     }
 
     delete theShader;
+
+    genThread.join();
+    meshThread.join();
     chunkmanager::destroy();
 
     glfwTerminate();
