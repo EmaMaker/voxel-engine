@@ -8,6 +8,7 @@
 #include "chunkmesher.hpp"
 #include "globals.hpp"
 
+#include <atomic>
 #include <iostream>
 #include <mutex>
 #include <set>
@@ -27,10 +28,12 @@ namespace chunkmanager
     std::set<Chunk::Chunk *> to_mesh;
     std::set<Chunk::Chunk *> to_mesh_shared;
 
+    std::atomic_bool mesh_should_run;
+    std::atomic_bool generate_should_run;
+
     void mesh()
     {
-        while (true)
-        {
+	while (mesh_should_run)
             if (mutex_queue_mesh.try_lock())
             {
                 for (const auto &c : to_mesh)
@@ -45,33 +48,11 @@ namespace chunkmanager
                 to_mesh.clear();
                 mutex_queue_mesh.unlock();
             }
-
-            // while (!to_mesh.empty())
-            // {
-
-            //     Chunk::Chunk *c = to_mesh.front();
-
-            //     if (c->mutex_state.try_lock())
-            //     {
-            //         chunkmesher::mesh(c);
-            //         // std::cout << "Meshing chunk at " << c->getPosition().x << ", " << c->getPosition().y << ", " << c->getPosition().z << "\n";
-            //         c->setState(Chunk::CHUNK_STATE_MESHED, true);
-            //         c->mutex_state.unlock();
-            //         to_mesh.pop();
-            //     }
-            // }
-            // if(mutex_queue_mesh.try_lock()){
-            // to_mesh = to_mesh_shared;
-            // mutex_queue_mesh.unlock();
-            // }
-            // std::cout << "To mesh empty\n";
-        }
     }
 
     void generate()
     {
-        while (true)
-        {
+        while (generate_should_run)
             if (mutex_queue_generate.try_lock())
             {
                 for (const auto &c : to_generate)
@@ -86,18 +67,27 @@ namespace chunkmanager
                 to_generate.clear();
                 mutex_queue_generate.unlock();
             }
-        }
     }
 
     std::thread initMeshThread()
     {
+	mesh_should_run = true;
         std::thread mesh_thread(mesh);
         return mesh_thread;
     }
     std::thread initGenThread()
     {
+	generate_should_run = true;
         std::thread gen_thread(generate);
         return gen_thread;
+    }
+
+    void stopGenThread(){
+	generate_should_run = false;
+    }
+
+    void stopMeshThread(){
+	mesh_should_run = false;
     }
 
     int total{0}, toGpu{0};

@@ -1,4 +1,3 @@
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -94,11 +93,16 @@ int main()
         glfwPollEvents();
     }
 
-    delete theShader;
+    chunkmanager::stopGenThread();
+    chunkmanager::stopMeshThread();
 
     genThread.join();
     meshThread.join();
+
     chunkmanager::destroy();
+
+    delete theShader;
+
 
     glfwTerminate();
     return 0;
