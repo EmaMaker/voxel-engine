@@ -18,7 +18,7 @@ public:
     {
         view = glm::mat4(1.0f);
         // note that we're translating the scene in the reverse direction of where we want to move
-        projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 0.1f, 200.0f);
+        projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 1.0f, 200.0f);
     }
 
     void update(GLFWwindow *window, float deltaTime)
@@ -49,7 +49,7 @@ public:
 
     void viewPortCallBack(GLFWwindow *window, int width, int height)
     {
-        projection = glm::perspective(glm::radians(70.0f), (float)width / (float)height, 0.1f, 350.0f);
+        projection = glm::perspective(glm::radians(80.0f), (float)width / (float)height, 1.0f, 350.0f);
     }
 
     void mouseCallback(GLFWwindow *window, double xpos, double ypos)
@@ -96,6 +96,32 @@ public:
     {
         return projection;
     }
+
+    // Plane extraction as per Gribb&Hartmann
+    // 6 planes, each with 4 components (a,b,c,d)
+    void getFrustumPlanes(glm::vec4 planes[6], bool normalize){
+	glm::mat4 mat = transpose(projection*view);
+
+	// This just compressed the code below
+	float ap = mat[3][0], bp = mat[3][1], cp = mat[3][2], dp = mat[3][3];
+
+	planes[0] = glm::vec4(ap + mat[0][0], bp + mat[0][1], cp + mat[0][2], dp + mat[0][3]);
+	planes[1] = glm::vec4(ap - mat[0][0], bp - mat[0][1], cp - mat[0][2], dp - mat[0][3]);
+	planes[2] = glm::vec4(ap + mat[1][0], bp + mat[1][1], cp + mat[1][2], dp + mat[1][3]);
+	planes[3] = glm::vec4(ap - mat[1][0], bp - mat[1][1], cp - mat[1][2], dp - mat[1][3]);
+	planes[4] = glm::vec4(ap + mat[2][0], bp + mat[2][1], cp + mat[2][2], dp + mat[2][3]);
+	planes[5] = glm::vec4(ap - mat[2][0], bp - mat[2][1], cp - mat[2][2], dp - mat[2][3]);
+
+	if(normalize)
+	for(int i = 0; i < 6; i++){
+	    float mag = sqrt(planes[i].x + planes[i].x + planes[i].y * planes[i].y +
+		planes[i].z*planes[i].z);
+
+	    planes[i] /= mag;
+	}
+    }
+
+
 
 private:
     glm::vec3 cameraPos = glm::vec3(static_cast<float>(CHUNK_SIZE)*24, 40.0f, static_cast<float>(CHUNK_SIZE)*24);

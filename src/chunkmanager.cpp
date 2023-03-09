@@ -93,6 +93,7 @@ namespace chunkmanager
     int total{0}, toGpu{0};
     int rr{RENDER_DISTANCE * RENDER_DISTANCE};
     uint8_t f = 0;
+    glm::vec4 frustumPlanes[6];
 
     void update(float deltaTime)
     {
@@ -103,6 +104,7 @@ namespace chunkmanager
         // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
         // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
         glm::vec3 cameraPos = theCamera.getPos();
+	theCamera.getFrustumPlanes(frustumPlanes, true);
 
         int chunkX{(static_cast<int>(cameraPos.x)) / CHUNK_SIZE}, chunkY{(static_cast<int>(cameraPos.y)) / CHUNK_SIZE}, chunkZ{(static_cast<int>(cameraPos.z)) / CHUNK_SIZE};
 
@@ -175,9 +177,9 @@ namespace chunkmanager
                 b = false;
             }
         }
-        // std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
-        // total = 0;
-        // toGpu = 0;
+        std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
+        total = 0;
+        toGpu = 0;
 
         if ((f & 1))
             mutex_queue_generate.unlock();
@@ -188,7 +190,6 @@ namespace chunkmanager
     // Generation and meshing happen in two separate threads from the main one
     // Chunk states are used to decide which actions need to be done on the chunk and queues+mutexes to pass the chunks between the threads
     // Uploading data to GPU still needs to be done in the main thread, or another OpenGL context needs to be opened, which further complicates stuff
-    // For now using frustum culling decreases performance (somehow)
     void updateChunk(uint32_t index, uint16_t i, uint16_t j, uint16_t k)
     {
         if (chunks.find(index) == chunks.end())
@@ -253,48 +254,39 @@ namespace chunkmanager
                         c->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
                     }
 
-                    glm::vec3 chunk = c->getPosition();
-                    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
-                    // chunkmesher::draw(c, model);
+		    // Frustum Culling of chunk
                     total++;
 
-                    int a{0};
-                    for (int i = 0; i < 8; i++)
-                    {
-                        glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * model);
-                        vertex = glm::normalize(vertex);
+                    glm::vec3 chunk = c->getPosition();
+		    glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
+                    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
 
-                        a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
-                    }
-                    if (a)
+		    bool out=false;
+		    // First test, check if all the corners of the chunk are outside any of the
+		    // planes
+		    for(int p = 0; p < 6; p++){
+
+			int a{0};
+			for(int i = 0; i < 8; i++) {
+			    a+=glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
+					+ ((float)((i
+						& 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >>
+						2))*CHUNK_SIZE, 1.0)) < 0.0;
+			    }
+
+			if(a==8){
+			    out=true;
+			    break;
+			}
+		    }
+
+                    if (!out)
                     {
                         toGpu++;
                         chunkmesher::draw(c, model);
                     }
                 }
             }
-
-            // if ((f & 4) == 4)
-            // {
-            //     glm::vec3 chunk = c->getPosition();
-            //     glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
-            //     // chunkmesher::draw(c, model);
-            //     // total++;
-
-            //     // int a{0};
-            //     // for (int i = 0; i < 8; i++)
-            //     // {
-            //     //     glm::vec4 vertex = glm::vec4(chunk.x + (float)(i & 1), chunk.y + (float)((i & 2) >> 1), chunk.z + (float)((i & 4) >> 2), 500.0f) * (theCamera.getProjection() * theCamera.getView() * model);
-            //     //     vertex = glm::normalize(vertex);
-
-            //     //     a += (-vertex.w <= vertex.x && vertex.x <= vertex.w && -vertex.w <= vertex.y && vertex.y <= vertex.w /*&& -vertex.w < vertex.z && vertex.z < vertex.w*/);
-            //     // }
-            //     // if (a)
-            //     // {
-            //     //     toGpu++;
-            //     chunkmesher::draw(c, model);
-            //     // }
-            // }
             c->mutex_state.unlock();
         }
     }
