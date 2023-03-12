@@ -63,7 +63,7 @@ public:
         std::cout << "end key: " << std::prev(treemap.end())->first << "\n";
     }
 
-    V *toArray(int *length)
+    std::unique_ptr<V[]> toArray(int *length)
     {
         if (treemap.empty())
         {
@@ -78,7 +78,7 @@ public:
         if(*length == 0) return nullptr;
         
         // std::cout << "Length: " << *length << "\n";
-        V *arr{new V[*length]};
+	std::unique_ptr<V[]> arr(new V[*length]);
 
         auto start = treemap.begin();
         for (auto i = std::next(treemap.begin()); i != treemap.end(); i++)

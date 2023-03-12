@@ -42,8 +42,10 @@ void mesh(Chunk::Chunk* chunk)
 
     // convert tree to array since it is easier to work with it
     int length{0};
-    Block *blocks = chunk->getBlocksArray(&length);
-    if(length == 0) return;
+    std::unique_ptr<Block[]> blocks = chunk->getBlocksArray(&length);
+    if(length == 0) {
+	return;
+    }
     
     int k, l, u, v, w, h, n, j, i;
     int x[]{0, 0, 0};
@@ -179,9 +181,6 @@ void mesh(Chunk::Chunk* chunk)
             }
         }
     }
-
-    delete[] blocks;
-    
 }
 
 void draw(Chunk::Chunk* chunk, glm::mat4 model)

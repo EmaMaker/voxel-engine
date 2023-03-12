@@ -15,7 +15,7 @@
 #include "intervalmap.hpp"
 #include "shader.hpp"
 
-#define CHUNK_SIZE 16
+#define CHUNK_SIZE 2
 #define CHUNK_VOLUME (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
 #define CHUNK_MAX_INDEX (CHUNK_VOLUME - 1)
 
@@ -47,7 +47,7 @@ namespace Chunk
         void setBlocks(int start, int end, Block b);
         Block getBlock(int x, int y, int z);
         IntervalMap<Block>& getBlocks() { return (this->blocks); }
-        Block* getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
+	std::unique_ptr<Block[]> getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
     public:
         GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
