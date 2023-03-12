@@ -11,6 +11,10 @@ class IntervalMap
 {
 
 public:
+    ~IntervalMap(){
+	treemap.clear();
+    }
+
     void insert(int start, int end, V value)
     {
         if (start >= end)
