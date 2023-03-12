@@ -33,6 +33,12 @@ namespace Chunk
         glDeleteBuffers(1, &(this->colorBuffer));
         glDeleteBuffers(1, &(this->VBO));
         glDeleteBuffers(1, &(this->EBO));
+
+	vertices.clear();
+	indices.clear();
+	colors.clear();
+
+	mutex_state.unlock();
     }
 
     Block Chunk::getBlock(int x, int y, int z)
