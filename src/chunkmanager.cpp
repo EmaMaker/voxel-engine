@@ -94,10 +94,13 @@ namespace chunkmanager
     int rr{RENDER_DISTANCE * RENDER_DISTANCE};
     uint8_t f = 0;
     glm::vec4 frustumPlanes[6];
-    std::set<uint32_t> old_chunks;
+    std::unordered_map<uint32_t, std::time_t> to_delete;
+    std::set<uint32_t> to_delete_delete;
 
     void update(float deltaTime)
     {
+	int nUnloaded{0};
+
         f = 0;
         f |= mutex_queue_generate.try_lock();
         f |= mutex_queue_mesh.try_lock() << 1;
@@ -105,9 +108,10 @@ namespace chunkmanager
         // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
         // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
         glm::vec3 cameraPos = theCamera.getPos();
-	    theCamera.getFrustumPlanes(frustumPlanes, true);
+	theCamera.getFrustumPlanes(frustumPlanes, true);
         int chunkX{(static_cast<int>(cameraPos.x)) / CHUNK_SIZE}, chunkY{(static_cast<int>(cameraPos.y)) / CHUNK_SIZE}, chunkZ{(static_cast<int>(cameraPos.z)) / CHUNK_SIZE};
 
+	std::time_t currentTime = std::time(nullptr);
 	// Check for far chunks that need to be cleaned up from memory
 	for(const auto& n : chunks){
 		Chunk::Chunk* c = n.second;
@@ -115,15 +119,21 @@ namespace chunkmanager
 		int y{(int)(c->getPosition().y)};
 		int z{(int)(c->getPosition().z)};
 		if( (chunkX-x)*(chunkX-x) + (chunkY-y)*(chunkY-y) + (chunkZ-z)*(chunkZ-z) >=
-			(int)(RENDER_DISTANCE*1.5)*(int)(RENDER_DISTANCE*1.5)){
-		    delete c;
-		    nUnloaded ++;
-
-		    old_chunks.insert(n.first);
-		}
+			(int)(RENDER_DISTANCE*1.5)*(int)(RENDER_DISTANCE*1.5))
+		    if(to_delete.find(n.first) == to_delete.end())
+			to_delete.insert(std::make_pair(n.first, currentTime));
 	}
-	for(uint32_t i : old_chunks) chunks.erase(i);
-	old_chunks.clear();
+	for(const auto& n :to_delete){
+	    if(  currentTime>=n.second + UNLOAD_TIMEOUT) {
+		    delete chunks.at(n.first);
+		    chunks.erase(n.first);
+		    nUnloaded++;
+		    to_delete_delete.insert(n.first);
+	    }
+	}
+	for(uint32_t i : to_delete_delete) to_delete.erase(i);
+	to_delete_delete.clear();
+	if(nUnloaded) std::cout << "Unloaded " << nUnloaded << " chunks\n";
 
 
         // Possible change: coordinates everything at the origin, then translate later?

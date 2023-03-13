@@ -1,6 +1,9 @@
 #ifndef CHUNKMANAGER_H
 #define CHUNKMANAGER_H
 
+// Second to be passed outside of render distance for a chunk to be destroyed
+#define UNLOAD_TIMEOUT 10
+
 #include <thread>
 
 namespace chunkmanager
