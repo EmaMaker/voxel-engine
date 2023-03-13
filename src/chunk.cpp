@@ -29,10 +29,10 @@ namespace Chunk
 
     Chunk ::~Chunk()
     {
-        glDeleteVertexArrays(1, &(this->VAO));
         glDeleteBuffers(1, &(this->colorBuffer));
         glDeleteBuffers(1, &(this->VBO));
         glDeleteBuffers(1, &(this->EBO));
+        glDeleteVertexArrays(1, &(this->VAO));
 
 	vertices.clear();
 	indices.clear();
