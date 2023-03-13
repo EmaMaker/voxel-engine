@@ -36,6 +36,7 @@ void mesh(Chunk::Chunk* chunk)
      */
     chunk->vertices.clear();
     chunk->indices.clear();
+    chunk->colors.clear();
     chunk->vIndex = 0;
 
     if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
