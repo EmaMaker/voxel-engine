@@ -94,6 +94,7 @@ namespace chunkmanager
     int rr{RENDER_DISTANCE * RENDER_DISTANCE};
     uint8_t f = 0;
     glm::vec4 frustumPlanes[6];
+    std::set<uint32_t> old_chunks;
 
     void update(float deltaTime)
     {
@@ -104,9 +105,26 @@ namespace chunkmanager
         // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
         // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
         glm::vec3 cameraPos = theCamera.getPos();
-	theCamera.getFrustumPlanes(frustumPlanes, true);
-
+	    theCamera.getFrustumPlanes(frustumPlanes, true);
         int chunkX{(static_cast<int>(cameraPos.x)) / CHUNK_SIZE}, chunkY{(static_cast<int>(cameraPos.y)) / CHUNK_SIZE}, chunkZ{(static_cast<int>(cameraPos.z)) / CHUNK_SIZE};
+
+	// Check for far chunks that need to be cleaned up from memory
+	for(const auto& n : chunks){
+		Chunk::Chunk* c = n.second;
+		int x{(int)(c->getPosition().x)};
+		int y{(int)(c->getPosition().y)};
+		int z{(int)(c->getPosition().z)};
+		if( (chunkX-x)*(chunkX-x) + (chunkY-y)*(chunkY-y) + (chunkZ-z)*(chunkZ-z) >=
+			(int)(RENDER_DISTANCE*1.5)*(int)(RENDER_DISTANCE*1.5)){
+		    delete c;
+		    nUnloaded ++;
+
+		    old_chunks.insert(n.first);
+		}
+	}
+	for(uint32_t i : old_chunks) chunks.erase(i);
+	old_chunks.clear();
+
 
         // Possible change: coordinates everything at the origin, then translate later?
         // Step 1. Eq. of a circle. Fix the x coordinate, get the 2 possible y's
@@ -177,9 +195,11 @@ namespace chunkmanager
                 b = false;
             }
         }
-        std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
-        total = 0;
-        toGpu = 0;
+	//std::cout << "Chunks to mesh: " << to_mesh.size() << "\n";
+	//std::cout << "Chunks to generate: " << to_generate.size() << "\n";
+        //std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
+        //total = 0;
+        //toGpu = 0;
 
         if ((f & 1))
             mutex_queue_generate.unlock();
