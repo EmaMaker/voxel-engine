@@ -97,6 +97,8 @@ namespace chunkmanager
     std::unordered_map<uint32_t, std::time_t> to_delete;
     std::set<uint32_t> to_delete_delete;
 
+    glm::vec3 cameraPos = theCamera.getPos();
+    int chunkX, chunkY, chunkZ;
     void update(float deltaTime)
     {
 	int nUnloaded{0};
@@ -107,9 +109,9 @@ namespace chunkmanager
 
         // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
         // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
-        glm::vec3 cameraPos = theCamera.getPos();
+        cameraPos = theCamera.getPos();
 	theCamera.getFrustumPlanes(frustumPlanes, true);
-        int chunkX{(static_cast<int>(cameraPos.x)) / CHUNK_SIZE}, chunkY{(static_cast<int>(cameraPos.y)) / CHUNK_SIZE}, chunkZ{(static_cast<int>(cameraPos.z)) / CHUNK_SIZE};
+        chunkX=(static_cast<int>(cameraPos.x)) / CHUNK_SIZE; chunkY=(static_cast<int>(cameraPos.y)) / CHUNK_SIZE; chunkZ=(static_cast<int>(cameraPos.z)) / CHUNK_SIZE;
 
 	std::time_t currentTime = std::time(nullptr);
 	// Check for far chunks that need to be cleaned up from memory
@@ -190,7 +192,8 @@ namespace chunkmanager
                     else
                         k = z;
 
-                    uint32_t in = i | (j << 10) | (k << 20); // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1024). There's actually two spare bits
+		    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1024). There's actually two spare bits
+		    uint32_t in = calculateIndex(i, j, k);
                     chunkmanager::updateChunk(in, i, j, k);
                 }
             }
@@ -319,6 +322,77 @@ namespace chunkmanager
             }
             c->mutex_state.unlock();
         }
+    }
+
+    void blockpick(bool place){
+	// cast a ray from the camera in the direction pointed by the camera itself
+	glm::vec3 pos = cameraPos;
+	for(float t = 0.0; t <= 25.0; t += 0.5){
+	    // traverse the ray a block at the time
+	    pos = theCamera.getPos() + t * theCamera.getFront();
+	    
+	    // get which chunk and block the ray is at
+	    int px = ((int)(pos.x))/CHUNK_SIZE;
+	    int py = ((int)(pos.y))/CHUNK_SIZE;
+	    int pz = ((int)(pos.z))/CHUNK_SIZE;
+	    int bx = pos.x - px*CHUNK_SIZE;
+	    int by = pos.y - py*CHUNK_SIZE;
+	    int bz = pos.z - pz*CHUNK_SIZE;
+
+	    // exit early if the position is invalid or the chunk does not exist
+	    if(px < 0 || py < 0 || pz < 0) return;
+	    if(chunks.find(calculateIndex(px, py, pz)) == chunks.end()) return;
+
+	    Chunk::Chunk* c = chunks.at(calculateIndex(px, py, pz));
+	    Block b = c->getBlock(bx, by, bz);
+
+	    // if the block is non empty
+	    if(b != Block::AIR){
+
+		// if placing a new block
+		if(place){
+		    // Go half a block backwards on the ray, to check the block where the ray was
+		    // coming from
+		    // Doing this and not using normal adds the unexpected (and unwanted) ability to
+		    // place blocks diagonally, without faces colliding with the block that has
+		    // been clicked
+		    pos -= theCamera.getFront()*0.5f;
+		    
+		    int px1 = ((int)(pos.x))/CHUNK_SIZE;
+		    int py1 = ((int)(pos.y))/CHUNK_SIZE;
+		    int pz1 = ((int)(pos.z))/CHUNK_SIZE;
+		    int bx1 = pos.x - px1*CHUNK_SIZE;
+		    int by1 = pos.y - py1*CHUNK_SIZE;
+		    int bz1 = pos.z - pz1*CHUNK_SIZE;
+
+		    // exit early if the position is invalid or the chunk does not exist
+		    if(px1 < 0 || py1 < 0 || pz1 < 0) return;
+		    if(chunks.find(calculateIndex(px1, py1, pz1)) == chunks.end()) return;
+
+		    Chunk::Chunk* c1 = chunks.at(calculateIndex(px1, py1, pz1));
+		    // place the new block (only stone for now)
+		    c1->setBlock( Block::STONE, bx1, by1, bz1);
+
+		    // update the mesh of the chunk
+		    chunkmesher::mesh(c1);
+		    // mark the mesh of the chunk the be updated on the gpu
+		    c1->setState(Chunk::CHUNK_STATE_MESH_LOADED, false);
+		}else{
+		    // replace the current block with air to remove it
+		    c->setBlock( Block::AIR, bx, by, bz);
+
+		    // update the mesh of the chunk
+		    chunkmesher::mesh(c);
+		    // mark the mesh of the chunk the be updated on the gpu
+		    c->setState(Chunk::CHUNK_STATE_MESH_LOADED, false);
+		}
+		break;
+	    }
+	}
+    }
+
+    uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k){
+	 return i | (j << 10) | (k << 20); 
     }
 
     void destroy()

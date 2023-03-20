@@ -6,6 +6,7 @@
 #include "intervalmap.hpp"
 #include "globals.hpp"
 
+#include <memory>
 namespace Chunk
 {
 
@@ -17,13 +18,12 @@ namespace Chunk
     Chunk::Chunk(glm::vec3 pos)
     {
         this->position = pos;
-        this->blocks.insert(0, CHUNK_VOLUME, Block::AIR);
         this->setState(CHUNK_STATE_EMPTY, true);
         // std::cout << "CHUNK" << std::endl;
-                    glGenVertexArrays(1, &(this->VAO));
-            glGenBuffers(1, &(this->colorBuffer));
-            glGenBuffers(1, &(this->VBO));
-            glGenBuffers(1, &(this->EBO));
+	glGenVertexArrays(1, &(this->VAO));
+	glGenBuffers(1, &(this->colorBuffer));
+	glGenBuffers(1, &(this->VBO));
+	glGenBuffers(1, &(this->EBO));
 
     }
 
@@ -49,7 +49,7 @@ namespace Chunk
     void Chunk::setBlock(Block b, int x, int y, int z)
     {
         int coord = HILBERT_XYZ_ENCODE[x][y][z];
-        blocks.insert(coord <= 0 ? 0 : coord, coord+1 >= CHUNK_VOLUME ? CHUNK_VOLUME : coord+1, b);
+	this->setBlocks(coord, coord+1, b);
     }
     
     void Chunk::setBlocks(int start, int end, Block b){

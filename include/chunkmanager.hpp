@@ -18,6 +18,9 @@ namespace chunkmanager
     void updateChunk(uint32_t, uint16_t, uint16_t, uint16_t);
     void destroy();
 
+    void blockpick(bool place);
+    uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k);
+
     void mesh();
     void generate();
 

@@ -17,6 +17,9 @@ float lastFrame = 0.0f; // Time of last frame
 float lastFPSFrame = 0.0f;
 int frames = 0;
 
+float lastBlockPick=0.0;
+bool blockpick = false;
+
 int main()
 {
 
@@ -76,6 +79,8 @@ int main()
             lastFPSFrame = currentFrame;
         }
 
+	if(glfwGetTime() - lastBlockPick > 0.2) blockpick = false;
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -123,4 +128,16 @@ void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && !blockpick){
+	chunkmanager::blockpick(false);
+	blockpick=true;
+	lastBlockPick=glfwGetTime();
+    }
+    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !blockpick){
+	chunkmanager::blockpick(true);
+	blockpick=true;
+	lastBlockPick=glfwGetTime();
+    }
+    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE) blockpick = false;
+
 }
