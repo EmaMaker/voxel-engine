@@ -26,14 +26,9 @@ public:
 
         const auto &tmp = treemap.lower_bound(end);
         const auto &end_prev_entry = tmp != treemap.begin() && tmp != treemap.end() ? std::prev(tmp) : tmp; // first element before end
-        const auto &end_next_entry = treemap.upper_bound(end);                                              // first element after end
-
-        const auto &tmp1 = treemap.lower_bound(start);
-        const auto &start_entry = tmp1 != treemap.begin() && tmp1 != treemap.end() ? std::prev(tmp1) : tmp1; // first element before start
+        const auto &end_next_entry = tmp;                                              // first element after end
 
         V v{};
-        // insert the start key. Replaces whatever value is already there. Do not place if the element before is of the same value
-        treemap[start] = value;
         if (end_next_entry == treemap.end())
         {
             if (end_prev_entry != treemap.end() && end_prev_entry->first > start)
@@ -43,11 +38,13 @@ public:
         }
         else
         {
-            if (end_next_entry->first > end + 1)
-                treemap[end] = (V)(end_prev_entry->second);
+	    if(end_next_entry->first != end)
+	    treemap[end] = end_prev_entry->second;
         }
-
+        // insert the start key. Replaces whatever value is already there. Do not place if the element before is of the same value
+        treemap[start] = value;
         treemap.erase(treemap.upper_bound(start), treemap.lower_bound(end));
+
     }
 
     void remove(int at)
@@ -57,14 +54,16 @@ public:
 
     V at(int index)
     {
-        return treemap.lower_bound(index)->second;
+	const auto tmp = treemap.lower_bound(index);
+	const auto r = tmp != treemap.begin() && tmp->first!=index ? std::prev(tmp) : tmp;
+	return r->second;
     }
 
     void print()
     {
         for (auto i = treemap.begin(); i != treemap.end(); i++)
             std::cout << i->first << ": " << (int)(i->second) << "\n";
-        std::cout << "end key: " << std::prev(treemap.end())->first << "\n";
+	if(!treemap.empty()) std::cout << "end key: " << std::prev(treemap.end())->first << "\n";
     }
 
     std::unique_ptr<V[]> toArray(int *length)
