@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+// http://and-what-happened.blogspot.com/2011/08/fast-2d-and-3d-hilbert-curves-and.html
 namespace SpaceFilling
 {
     uint32_t MortonToHilbert3D(const uint32_t morton, const uint32_t bits)

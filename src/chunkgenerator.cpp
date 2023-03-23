@@ -33,6 +33,7 @@ OpenSimplexNoise::Noise noiseGen2(12345);
 
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> grassNoiseLUT;
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> dirtNoiseLUT;
+
 void generateNoise(Chunk::Chunk *chunk)
 {
     for (int i = 0; i < grassNoiseLUT.size(); i++)
@@ -88,6 +89,5 @@ void generatePyramid(Chunk::Chunk *chunk)
     for (int i = 0; i < CHUNK_SIZE; i++)
         for (int j = 0; j < CHUNK_SIZE; j++)
             for (int k = 0; k < CHUNK_SIZE; k++)
-                //             blocks[utils::coord3DTo1D(i, j, k, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE)] = j == 0 ? Block::STONE : Block::AIR;
                 chunk->setBlock(i >= j && i < CHUNK_SIZE - j && k >= j && k < CHUNK_SIZE - j ? (j & 1) == 0 ? Block::GRASS : Block::STONE : Block::AIR, i, j, k);
 }

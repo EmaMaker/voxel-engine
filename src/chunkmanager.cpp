@@ -20,16 +20,25 @@ std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
 
 namespace chunkmanager
 {
+    // thread management
     std::mutex mutex_queue_generate;
-    std::set<Chunk::Chunk *> to_generate;
-    std::set<Chunk::Chunk *> to_generate_shared;
-
     std::mutex mutex_queue_mesh;
+    std::set<Chunk::Chunk *> to_generate;
     std::set<Chunk::Chunk *> to_mesh;
-    std::set<Chunk::Chunk *> to_mesh_shared;
-
-    std::atomic_bool mesh_should_run;
     std::atomic_bool generate_should_run;
+    std::atomic_bool mesh_should_run;
+
+    // update variables
+    uint8_t f = 0;
+    int rr{RENDER_DISTANCE * RENDER_DISTANCE};
+    glm::vec4 frustumPlanes[6];
+    glm::vec3 cameraPos;
+    int chunkX, chunkY, chunkZ;
+    int total{0}, toGpu{0};
+
+    // disposal
+    std::unordered_map<uint32_t, float> to_delete;
+    std::set<uint32_t> to_delete_delete;
 
     void mesh()
     {
@@ -75,6 +84,7 @@ namespace chunkmanager
         std::thread mesh_thread(mesh);
         return mesh_thread;
     }
+
     std::thread initGenThread()
     {
 	generate_should_run = true;
@@ -90,31 +100,25 @@ namespace chunkmanager
 	mesh_should_run = false;
     }
 
-    int total{0}, toGpu{0};
-    int rr{RENDER_DISTANCE * RENDER_DISTANCE};
-    uint8_t f = 0;
-    glm::vec4 frustumPlanes[6];
-    std::unordered_map<uint32_t, std::time_t> to_delete;
-    std::set<uint32_t> to_delete_delete;
-
-    glm::vec3 cameraPos = theCamera.getPos();
-    int chunkX, chunkY, chunkZ;
     void update(float deltaTime)
     {
-	int nUnloaded{0};
 
+	// Try to lock resources
         f = 0;
         f |= mutex_queue_generate.try_lock();
         f |= mutex_queue_mesh.try_lock() << 1;
 
-        // Iterate over all chunks, in concentric spheres starting fron the player and going outwards
-        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
         cameraPos = theCamera.getPos();
 	theCamera.getFrustumPlanes(frustumPlanes, true);
-        chunkX=(static_cast<int>(cameraPos.x)) / CHUNK_SIZE; chunkY=(static_cast<int>(cameraPos.y)) / CHUNK_SIZE; chunkZ=(static_cast<int>(cameraPos.z)) / CHUNK_SIZE;
+        chunkX=static_cast<int>(cameraPos.x) / CHUNK_SIZE;
+	chunkY=static_cast<int>(cameraPos.y) / CHUNK_SIZE;
+	chunkZ=static_cast<int>(cameraPos.z) / CHUNK_SIZE;
 
-	std::time_t currentTime = std::time(nullptr);
+	// Use time in float to be consistent with glfw
+	float currentTime = glfwGetTime();
+
 	// Check for far chunks that need to be cleaned up from memory
+	int nUnloaded{0};
 	for(const auto& n : chunks){
 		Chunk::Chunk* c = n.second;
 		int x{(int)(c->getPosition().x)};
@@ -130,6 +134,8 @@ namespace chunkmanager
 		    delete chunks.at(n.first);
 		    chunks.erase(n.first);
 		    nUnloaded++;
+
+		    // Delete afterwards to avoid exception due to invalid iterators
 		    to_delete_delete.insert(n.first);
 	    }
 	}
@@ -137,6 +143,9 @@ namespace chunkmanager
 	to_delete_delete.clear();
 	if(nUnloaded) std::cout << "Unloaded " << nUnloaded << " chunks\n";
 
+        // Iterate over all chunks, in concentric spheres starting fron the player and going
+	// outwards. Alternate left and right
+        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
 
         // Possible change: coordinates everything at the origin, then translate later?
         // Step 1. Eq. of a circle. Fix the x coordinate, get the 2 possible y's
@@ -144,16 +153,9 @@ namespace chunkmanager
         bool b = true;
         while (xp <= RENDER_DISTANCE)
         {
-            if (b)
-            {
-                x = chunkX + xp;
-            }
-            else
-            {
-                x = chunkX - xp;
-            }
-            // for (int x = chunkX - RENDER_DISTANCE; x < chunkX + RENDER_DISTANCE; x++)
-            // {
+	    // Alternate between left and right
+            if (b) x = chunkX + xp;
+            else x = chunkX - xp;
 
             // Possible optimization: use sqrt lookup
             int y1 = sqrt((rr) - (x - chunkX) * (x - chunkX)) + chunkY;
@@ -192,7 +194,6 @@ namespace chunkmanager
                     else
                         k = z;
 
-		    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1024). There's actually two spare bits
 		    uint32_t in = calculateIndex(i, j, k);
                     chunkmanager::updateChunk(in, i, j, k);
                 }
@@ -203,10 +204,7 @@ namespace chunkmanager
                 xp++;
                 b = true;
             }
-            else
-            {
-                b = false;
-            }
+            else  b = false;
         }
 	//std::cout << "Chunks to mesh: " << to_mesh.size() << "\n";
 	//std::cout << "Chunks to generate: " << to_generate.size() << "\n";
@@ -214,6 +212,8 @@ namespace chunkmanager
         //total = 0;
         //toGpu = 0;
 
+	// Unlock mutexes if previously locked. Unlocking a mutex not locked by the current thread
+	// or already locked is undefined behaviour, so checking has to be done
         if ((f & 1))
             mutex_queue_generate.unlock();
         if ((f & 2))
@@ -221,8 +221,10 @@ namespace chunkmanager
     }
 
     // Generation and meshing happen in two separate threads from the main one
-    // Chunk states are used to decide which actions need to be done on the chunk and queues+mutexes to pass the chunks between the threads
-    // Uploading data to GPU still needs to be done in the main thread, or another OpenGL context needs to be opened, which further complicates stuff
+    // Chunk states are used to decide which actions need to be done on the chunk and sets+mutexes
+    // to pass the chunks to be operated on between the threads.
+    // Uploading data to GPU still needs to be done in the main thread, or another OpenGL context
+    // needs to be opened, which further complicates stuff.
     void updateChunk(uint32_t index, uint16_t i, uint16_t j, uint16_t k)
     {
         if (chunks.find(index) == chunks.end())
@@ -252,6 +254,7 @@ namespace chunkmanager
                 else
                 {
                     if (!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) chunkmesher::sendtogpu(c);
+
 		    // Frustum Culling of chunk
 		    total++;
 
@@ -259,18 +262,15 @@ namespace chunkmanager
 		    glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
 		    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
 
+		    // Check if all the corners of the chunk are outside any of the planes
+		    // TODO (?) implement frustum culling as per (Inigo Quilez)[https://iquilezles.org/articles/frustumcorrect/], and check each
+		    // plane against each corner of the chunk 
 		    bool out=false;
-		    // First test, check if all the corners of the chunk are outside any of the
-		    // planes
+		    int a{0};
 		    for(int p = 0; p < 6; p++){
-
-			int a{0};
-			for(int i = 0; i < 8; i++) {
-			    a+=glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
-					+ ((float)((i
-						& 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >>
-						2))*CHUNK_SIZE, 1.0)) < 0.0;
-			    }
+			a = 0;
+			for(int i = 0; i < 8; i++)  a += glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
+					+ ((float)((i & 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >> 2))*CHUNK_SIZE, 1.0)) < 0.0;
 
 			if(a==8){
 			    out=true;
@@ -292,7 +292,7 @@ namespace chunkmanager
     void blockpick(bool place){
 	// cast a ray from the camera in the direction pointed by the camera itself
 	glm::vec3 pos = cameraPos;
-	for(float t = 0.0; t <= 25.0; t += 0.5){
+	for(float t = 0.0; t <= 10.0; t += 0.5){
 	    // traverse the ray a block at the time
 	    pos = theCamera.getPos() + t * theCamera.getFront();
 	    
@@ -356,6 +356,7 @@ namespace chunkmanager
 	}
     }
 
+    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1024). There's actually two spare bits
     uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k){
 	 return i | (j << 10) | (k << 20); 
     }

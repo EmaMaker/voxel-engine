@@ -79,8 +79,6 @@ int main()
             lastFPSFrame = currentFrame;
         }
 
-	if(glfwGetTime() - lastBlockPick > 0.2) blockpick = false;
-
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -89,6 +87,9 @@ int main()
 
         // Camera
         theCamera.update(window, deltaTime);
+	
+	// Reset blockping timeout if 200ms have passed
+	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
         // ChunkManager
         chunkmanager::update(deltaTime);
@@ -98,14 +99,14 @@ int main()
         glfwPollEvents();
     }
 
+    // Stop threads and wait for them to finish
     chunkmanager::stopGenThread();
     chunkmanager::stopMeshThread();
-
     genThread.join();
     meshThread.join();
 
+    // Cleanup allocated memory
     chunkmanager::destroy();
-
     delete theShader;
 
 
@@ -128,16 +129,20 @@ void processInput(GLFWwindow *window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && !blockpick){
 	chunkmanager::blockpick(false);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
+
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !blockpick){
 	chunkmanager::blockpick(true);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
+
+    // Reset blockpicking if enough time has passed
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE) blockpick = false;
 
 }

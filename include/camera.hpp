@@ -8,8 +8,6 @@
 
 #include <iostream>
 
-#include "chunk.hpp"
-
 class Camera
 {
 
@@ -17,13 +15,15 @@ public:
     Camera()
     {
         view = glm::mat4(1.0f);
-        // note that we're translating the scene in the reverse direction of where we want to move
+
+	// This matrix needs to be also updated in viewPortCallback whenever it is changed
         projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 0.1f, 200.0f);
     }
 
     void update(GLFWwindow *window, float deltaTime)
     {
-        const float cameraSpeed = 10.0f * deltaTime; // adjust accordingly
+        const float cameraSpeed = 25.0f * deltaTime; // adjust accordingly
+
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             this->cameraPos += cameraSpeed * cameraFront;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -72,34 +72,16 @@ public:
             pitch = -89.0f;
     }
 
-    glm::vec3 getPos()
-    {
-        return cameraPos;
-    }
-
-    glm::vec3 getFront()
-    {
-        return cameraFront;
-    }
-
-    glm::vec3 getUp()
-    {
-        return cameraUp;
-    }
-
-    glm::mat4 getView()
-    {
-        return view;
-    }
-
-    glm::mat4 getProjection()
-    {
-        return projection;
-    }
+    glm::vec3 getPos() { return cameraPos; }
+    glm::vec3 getFront() { return cameraFront; }
+    glm::vec3 getUp() { return cameraUp; }
+    glm::mat4 getView() { return view; }
+    glm::mat4 getProjection() { return projection; }
 
     // Plane extraction as per Gribb&Hartmann
     // 6 planes, each with 4 components (a,b,c,d)
-    void getFrustumPlanes(glm::vec4 planes[6], bool normalize){
+    void getFrustumPlanes(glm::vec4 planes[6], bool normalize)
+    {
 	glm::mat4 mat = transpose(projection*view);
 
 	// This just compressed the code below
@@ -122,9 +104,8 @@ public:
     }
 
 
-
 private:
-    glm::vec3 cameraPos = glm::vec3(static_cast<float>(CHUNK_SIZE)*24, 40.0f, static_cast<float>(CHUNK_SIZE)*24);
+    glm::vec3 cameraPos = glm::vec3(0.0, 80.0f, 0.0f);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.0f);

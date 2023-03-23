@@ -19,7 +19,7 @@ namespace Chunk
     {
         this->position = pos;
         this->setState(CHUNK_STATE_EMPTY, true);
-        // std::cout << "CHUNK" << std::endl;
+
 	glGenVertexArrays(1, &(this->VAO));
 	glGenBuffers(1, &(this->colorBuffer));
 	glGenBuffers(1, &(this->VBO));

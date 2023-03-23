@@ -27,18 +27,14 @@ void mesh(Chunk::Chunk* chunk)
      * across different planes everytime I change dimension without having to
      * write 3 separate 3-nested-for-loops
      */
-    /*
-     * It's not feasible to just create a new mesh everytime a quad needs placing.
-     * This ends up creating TONS of meshes and the game will just lag out.
-     * As I did in the past, it's better to create a single mesh for each chunk,
-     * containing all the quads. In the future, maybe translucent blocks and liquids
-     * will need a separate mesh, but still on a per-chunk basis
-     */
+
+    // Cleanup previous data
     chunk->vertices.clear();
     chunk->indices.clear();
     chunk->colors.clear();
     chunk->vIndex = 0;
 
+    // Abort if chunk is empty
     if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
 
     // convert tree to array since it is easier to work with it
@@ -95,7 +91,8 @@ void mesh(Chunk::Chunk* chunk)
 
                         // Additionally checking whether b1 and b2 are AIR or Block::NULLBLK allows face culling,
                         // thus not rendering faces that cannot be seen
-                        // Removing the control for Block::NULLBLK disables chunk borders
+                        // Removing the control for Block::NULLBLK disables chunk borders, which is
+			// not always wanted and needs further checking
                         // This can be surely refactored in something that isn't such a big one-liner
                         mask[n++] = b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2 ? Block::NULLBLK
                                     : backFace                                               ? b1 == Block::AIR || b1 == Block::NULLBLK ? b2 : Block::NULLBLK
@@ -209,12 +206,16 @@ void sendtogpu(Chunk::Chunk* chunk)
 
 	glBindVertexArray(0);
 
+	// save the number of indices of the mesh, it is needed later for drawing
 	chunk->vIndex = (GLuint)(chunk->indices.size());
 
+	// once data has been sent to the GPU, it can be cleared from system RAM
 	chunk->vertices.clear();
 	chunk->indices.clear();
 	chunk->colors.clear();
     }
+    
+    // mark the chunk mesh has loaded on GPU
     chunk->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
 }
 
@@ -274,30 +275,30 @@ void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
     }
     chunk->vIndex += 4;
 
-    // ugly switch case
+    // ugly switch case for colors
     GLfloat r, g, b;
     switch (block)
     {
-    case Block::STONE:
-        r = 0.588f;
-        g = 0.588f;
-        b = 0.588f;
-        break;
-    case Block::GRASS:
-        r = 0.05f;
-        g = 0.725f;
-        b = 0.0f;
-        break;
-    case Block::DIRT:
-        r = 0.176f;
-        g = 0.282f;
-        b = 0.169f;
-        break;
-    default:
-        r = 0.0f;
-        g = 0.0f;
-        b = 0.0f;
-        break;
+	case Block::STONE:
+	    r = 0.588f;
+	    g = 0.588f;
+	    b = 0.588f;
+	    break;
+	case Block::GRASS:
+	    r = 0.05f;
+	    g = 0.725f;
+	    b = 0.0f;
+	    break;
+	case Block::DIRT:
+	    r = 0.176f;
+	    g = 0.282f;
+	    b = 0.169f;
+	    break;
+	default:
+	    r = 0.0f;
+	    g = 0.0f;
+	    b = 0.0f;
+	    break;
     }
 
     // Fake shadows

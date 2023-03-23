@@ -20,10 +20,7 @@ public:
         if (start >= end)
             return;
 
-        // higherEntry -> upper_bound
-        // lowerEntry -> find()--
         // c++ has no builtin function to find the greater key LESS THAN the supplied key. The solution I've found is to get an iterator to the key with find() and traverse back with std::prev
-
         const auto &tmp = treemap.lower_bound(end);
         const auto &end_prev_entry = tmp != treemap.begin() && tmp != treemap.end() ? std::prev(tmp) : tmp; // first element before end
         const auto &end_next_entry = tmp;                                              // first element after end
@@ -40,7 +37,11 @@ public:
         {
 	    if(end_next_entry->first != end)
 	    treemap[end] = end_prev_entry->second;
+
+	    // A little optimization: delete next key if it is of the same value of the end key
+	    if(end_next_entry->second == treemap[end]) treemap.erase(end_next_entry);
         }
+
         // insert the start key. Replaces whatever value is already there. Do not place if the element before is of the same value
         treemap[start] = value;
         treemap.erase(treemap.upper_bound(start), treemap.lower_bound(end));
@@ -70,23 +71,18 @@ public:
     {
         if (treemap.empty())
         {
-            // std::cout << "List is empty" << std::endl;
             *length = 0;
             return nullptr;
         }
 
         const auto &end = std::prev(treemap.end());
-
         *length = end->first;
         if(*length == 0) return nullptr;
         
-        // std::cout << "Length: " << *length << "\n";
 	std::unique_ptr<V[]> arr(new V[*length]);
-
         auto start = treemap.begin();
         for (auto i = std::next(treemap.begin()); i != treemap.end(); i++)
         {
-            // std::cout << "creating list from " << start->first << " to " << i->first << " of type " << (int)(start->second) << "\n";
             for (int k = start->first; k < i->first; k++)
                 arr[k] = start->second;
             start = i;

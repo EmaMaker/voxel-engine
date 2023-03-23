@@ -10,7 +10,7 @@
 #define extr extern
 #endif
 
-#define RENDER_DISTANCE 8
+#define RENDER_DISTANCE 16
 
 extr Camera theCamera;
 extr Shader* theShader;
