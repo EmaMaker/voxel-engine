@@ -251,48 +251,13 @@ namespace chunkmanager
                 }
                 else
                 {
-                    if (!c->getState(Chunk::CHUNK_STATE_MESH_LOADED))
-                    {
-                        if (c->vIndex > 0)
-                        {
-
-                            // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-                            glBindVertexArray(c->VAO);
-
-                            glBindBuffer(GL_ARRAY_BUFFER, c->VBO);
-                            glBufferData(GL_ARRAY_BUFFER, c->vertices.size() * sizeof(GLfloat), &(c->vertices[0]), GL_STATIC_DRAW);
-
-                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, c->EBO);
-                            glBufferData(GL_ELEMENT_ARRAY_BUFFER, c->indices.size() * sizeof(GLuint), &(c->indices[0]), GL_STATIC_DRAW);
-
-                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-                            glEnableVertexAttribArray(0);
-
-                            glBindBuffer(GL_ARRAY_BUFFER, c->colorBuffer);
-                            glBufferData(GL_ARRAY_BUFFER, c->colors.size() * sizeof(GLfloat), &(c->colors[0]), GL_STATIC_DRAW);
-
-                            glEnableVertexAttribArray(1);
-                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-
-                            // glDisableVertexAttribArray(0);
-                            // glDisableVertexAttribArray(1);
-                            glBindVertexArray(0);
-
-                            c->vIndex = (GLuint)(c->indices.size());
-
-                            c->vertices.clear();
-                            c->indices.clear();
-                            c->colors.clear();
-                        }
-                        c->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
-                    }
-
+                    if (!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) chunkmesher::sendtogpu(c);
 		    // Frustum Culling of chunk
-                    total++;
+		    total++;
 
-                    glm::vec3 chunk = c->getPosition();
+		    glm::vec3 chunk = c->getPosition();
 		    glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
-                    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
+		    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
 
 		    bool out=false;
 		    // First test, check if all the corners of the chunk are outside any of the
@@ -313,11 +278,11 @@ namespace chunkmanager
 			}
 		    }
 
-                    if (!out)
-                    {
-                        toGpu++;
-                        chunkmesher::draw(c, model);
-                    }
+		    if (!out)
+		    {
+			toGpu++;
+			chunkmesher::draw(c, model);
+		    }
                 }
             }
             c->mutex_state.unlock();
