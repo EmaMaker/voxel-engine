@@ -16,6 +16,7 @@ namespace chunkmanager
     void mesh();
     void generate();
 
+    void init();
     void blockpick(bool place);
     uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k);
     

@@ -59,6 +59,7 @@ int main()
     std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
     SpaceFilling::initLUT();
+    chunkmanager::init();
     std::thread genThread = chunkmanager::initGenThread();
     std::thread meshThread = chunkmanager::initMeshThread();
 

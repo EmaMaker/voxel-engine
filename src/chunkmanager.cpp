@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <iostream>
+#include <math.h>
 #include <mutex>
 #include <set>
 #include <string>
@@ -17,6 +18,9 @@
 #include <thread>
 
 std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
+
+constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
+std::array<std::array<int, 3>, chunks_volume> chunks_indices;
 
 namespace chunkmanager
 {
@@ -92,17 +96,50 @@ namespace chunkmanager
         return gen_thread;
     }
 
-    void stopGenThread(){
-	generate_should_run = false;
-    }
+    void init(){
+	int index{0};
 
-    void stopMeshThread(){
-	mesh_should_run = false;
+        int xp{0}, x{0};
+        bool b = true;
+
+        // Iterate over all chunks, in concentric spheres starting fron the player and going
+	// outwards. Alternate left and right
+        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
+        while (xp <= RENDER_DISTANCE)
+        {
+	    // Alternate between left and right
+            if (b) x = +xp;
+            else x = -xp;
+
+	    // Step 1. At current x, get the corresponding y values (2nd degree equation, up to 2
+	    // possible results)
+            int y1 = static_cast<int>(sqrt((rr) - x*x));
+
+            for (int y = -y1 + 1 ; y <= y1; y++)
+            {
+                // Step 2. At both y's, get the corresponding z values
+		int z1 = static_cast<int>(sqrt( rr - x*x - y*y));
+
+                for (int z = -z1 + 1; z <= z1; z++){
+		    chunks_indices[index][0] = x;
+		    chunks_indices[index][1] = y;
+		    chunks_indices[index][2] = z;
+		    std::cout << index << "/" << chunks_volume << "\n";
+		    index++;
+		}
+            }
+
+            if (!b)
+            {
+                xp++;
+                b = true;
+            }
+            else  b = false;
+	}
     }
 
     void update(float deltaTime)
     {
-
 	// Try to lock resources
         f = 0;
         f |= mutex_queue_generate.try_lock();
@@ -143,69 +180,14 @@ namespace chunkmanager
 	to_delete_delete.clear();
 	if(nUnloaded) std::cout << "Unloaded " << nUnloaded << " chunks\n";
 
-        // Iterate over all chunks, in concentric spheres starting fron the player and going
-	// outwards. Alternate left and right
-        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
+	for(int i = 0; i < chunks_volume; i++) 
+	    updateChunk(calculateIndex(chunks_indices[i][0] + chunkX,
+					chunks_indices[i][1] + chunkY,
+					chunks_indices[i][2] + chunkZ),
+			chunks_indices[i][0] + chunkX,
+			chunks_indices[i][1] + chunkY,
+			chunks_indices[i][2] + chunkZ);
 
-        // Possible change: coordinates everything at the origin, then translate later?
-        // Step 1. Eq. of a circle. Fix the x coordinate, get the 2 possible y's
-        int xp{0}, x{0};
-        bool b = true;
-        while (xp <= RENDER_DISTANCE)
-        {
-	    // Alternate between left and right
-            if (b) x = chunkX + xp;
-            else x = chunkX - xp;
-
-            // Possible optimization: use sqrt lookup
-            int y1 = sqrt((rr) - (x - chunkX) * (x - chunkX)) + chunkY;
-            int y2 = -sqrt((rr) - (x - chunkX) * (x - chunkX)) + chunkY;
-
-            for (int y = y2 + 1; y <= y1; y++)
-            {
-                // Step 2. At both y's, get the corresponding z values
-                int z1 = sqrt((rr) - (x - chunkX) * (x - chunkX) - (y - chunkY) * (y - chunkY)) + chunkZ;
-                int z2 = -sqrt((rr) - (x - chunkX) * (x - chunkX) - (y - chunkY) * (y - chunkY)) + chunkZ;
-
-                // std::cout << "RENDER DISTANCE " << RENDER_DISTANCE << " Current radius: " << r << " X: " << x << " Y Limits: " << y1 << " - " << y2 << "(" << y << ") Z Limits: " << z1 << " - " << z2 << std::endl;
-
-                for (int z = z2; z <= z1; z++)
-                {
-                    uint16_t i{}, j{}, k{};
-
-                    if (x < 0)
-                        i = 0;
-                    else if (x >= 1024)
-                        i = 1023;
-                    else
-                        i = x;
-
-                    if (y < 0)
-                        j = 0;
-                    else if (y >= 1024)
-                        j = 1023;
-                    else
-                        j = y;
-
-                    if (z < 0)
-                        k = 0;
-                    else if (z >= 1024)
-                        k = 1023;
-                    else
-                        k = z;
-
-		    uint32_t in = calculateIndex(i, j, k);
-                    chunkmanager::updateChunk(in, i, j, k);
-                }
-            }
-
-            if (!b)
-            {
-                xp++;
-                b = true;
-            }
-            else  b = false;
-        }
 	//std::cout << "Chunks to mesh: " << to_mesh.size() << "\n";
 	//std::cout << "Chunks to generate: " << to_generate.size() << "\n";
         //std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
@@ -366,4 +348,13 @@ namespace chunkmanager
         for (auto &n : chunks)
             delete n.second;
     }
+
+    void stopGenThread(){
+	generate_should_run = false;
+    }
+
+    void stopMeshThread(){
+	mesh_should_run = false;
+    }
+
 };
