@@ -8,13 +8,15 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-out vec4 vColor;
+out vec3 vColor;
 out vec3 vNormal;
+out vec3 FragPos;
 
 void main()
 {
-    vColor = vec4(aColor, 1.0f);
-    vNormal = aNormal;
+    vColor = aColor;
+    vNormal = mat3(transpose(inverse(model))) * aNormal;
 
+    FragPos = vec3(model*vec4(aPos, 1.0));
     gl_Position = projection * view * model * vec4(aPos, 1.0);
 }

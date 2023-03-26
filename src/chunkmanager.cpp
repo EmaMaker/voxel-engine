@@ -124,7 +124,6 @@ namespace chunkmanager
 		    chunks_indices[index][0] = x;
 		    chunks_indices[index][1] = y;
 		    chunks_indices[index][2] = z;
-		    std::cout << index << "/" << chunks_volume << "\n";
 		    index++;
 		}
             }

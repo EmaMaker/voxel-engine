@@ -323,21 +323,6 @@ void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
 	    break;
     }
 
-    // Fake shadows
-    if ((bottomLeft.z == bottomRight.z && bottomRight.z == topLeft.z && topLeft.z == topRight.z))
-    {
-        r += 0.1f;
-        g += 0.1f;
-        b += 0.1f;
-    }
-
-    if ((bottomLeft.y == bottomRight.y && bottomRight.y == topLeft.y && topLeft.y == topRight.y))
-    {
-        r += 0.12f;
-        g += 0.12f;
-        b += 0.12f;
-    }
-
     for (int i = 0; i < 4; i++)
     {
         chunk->colors.push_back(r);

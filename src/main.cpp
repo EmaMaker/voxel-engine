@@ -88,6 +88,8 @@ int main()
 
         // Camera
         theCamera.update(window, deltaTime);
+	theShader->setFloat("u_time", currentFrame);
+	theShader->setVec3("viewPos", theCamera.getPos());
 	
 	// Reset blockping timeout if 200ms have passed
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
