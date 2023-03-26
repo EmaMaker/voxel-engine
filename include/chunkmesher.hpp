@@ -16,7 +16,8 @@ namespace chunkmesher{
     void sendtogpu(Chunk::Chunk* chunk);
     void draw(Chunk::Chunk* chunk, glm::mat4 model);
 
-    void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace);
+    void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
+	    glm::vec3 bottomRight, glm::vec3 normal, Block block, bool backFace);
 }
 
 

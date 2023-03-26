@@ -151,6 +151,7 @@ void mesh(Chunk::Chunk* chunk)
                                      glm::vec3(x[0] + du[0] + dv[0], x[1] + du[1] + dv[1],
                                                x[2] + du[2] + dv[2]),
                                      glm::vec3(x[0] + dv[0], x[1] + dv[1], x[2] + dv[2]),
+				     glm::vec3(backFace ? q[0] : -q[0], backFace ? q[1] : -q[1], backFace ? q[2] : -q[2] ),
                                      mask[n], backFace);
                             }
 
@@ -192,17 +193,24 @@ void sendtogpu(Chunk::Chunk* chunk)
 	glBindBuffer(GL_ARRAY_BUFFER, chunk->VBO);
 	glBufferData(GL_ARRAY_BUFFER, chunk->vertices.size() * sizeof(GLfloat), &(chunk->vertices[0]), GL_STATIC_DRAW);
 
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+	glEnableVertexAttribArray(0);
+
+	// normal attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3*
+		    sizeof(float)));
+	glEnableVertexAttribArray(1);
+
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, chunk->indices.size() * sizeof(GLuint), &(chunk->indices[0]), GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-	glEnableVertexAttribArray(0);
-
+	// color attribute
 	glBindBuffer(GL_ARRAY_BUFFER, chunk->colorBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chunk->colors.size() * sizeof(GLfloat), &(chunk->colors[0]), GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 
 	glBindVertexArray(0);
 
@@ -236,24 +244,38 @@ void draw(Chunk::Chunk* chunk, glm::mat4 model)
     }
 }
 
-void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight, glm::vec3 bottomRight, Block block, bool backFace)
+void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
+	glm::vec3 bottomRight, glm::vec3 normal, Block block, bool backFace)
 {
 
     chunk->vertices.push_back(bottomLeft.x);
     chunk->vertices.push_back(bottomLeft.y);
     chunk->vertices.push_back(bottomLeft.z);
+    chunk->vertices.push_back(normal.x);
+    chunk->vertices.push_back(normal.y);
+    chunk->vertices.push_back(normal.z);
 
     chunk->vertices.push_back(bottomRight.x);
     chunk->vertices.push_back(bottomRight.y);
     chunk->vertices.push_back(bottomRight.z);
+    chunk->vertices.push_back(normal.x);
+    chunk->vertices.push_back(normal.y);
+    chunk->vertices.push_back(normal.z);
 
     chunk->vertices.push_back(topLeft.x);
     chunk->vertices.push_back(topLeft.y);
     chunk->vertices.push_back(topLeft.z);
+    chunk->vertices.push_back(normal.x);
+    chunk->vertices.push_back(normal.y);
+    chunk->vertices.push_back(normal.z);
 
     chunk->vertices.push_back(topRight.x);
     chunk->vertices.push_back(topRight.y);
     chunk->vertices.push_back(topRight.z);
+    chunk->vertices.push_back(normal.x);
+    chunk->vertices.push_back(normal.y);
+    chunk->vertices.push_back(normal.z);
+
 
     if (backFace)
     {   
