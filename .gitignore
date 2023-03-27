@@ -6,3 +6,6 @@ xtmemory*
 memcheck_result.xml
 profile
 gmon.out*
+cscope*
+test.cpp
+a.out
