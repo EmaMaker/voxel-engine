@@ -9,9 +9,9 @@ out vec4 FragColor;
 vec3 lightColor = vec3(1.0);
 vec3 lightDir = -normalize(vec3(0.0, 100.0, 0.0) - vec3(32.0));
 
-float ambientStrength = 0.5;
-float diffuseStrength = 0.3;
-float specularStrength = 0.2;
+float ambientStrength = 0.05;
+float diffuseStrength = 0.7;
+float specularStrength = 0.25;
 
 uniform vec3 viewPos;
 uniform float u_time;
@@ -38,5 +38,7 @@ void main()
 
     // Final color
     vec3 color = ambient * ambientStrength + diffuse * diffuseStrength + specular * specularStrength;
-    FragColor = vec4(color, 1.0);
+    
+    float gamma = 2.2;
+    FragColor.rgb = pow(color.rgb, vec3(1.0/gamma));
 }

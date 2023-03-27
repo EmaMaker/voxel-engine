@@ -312,9 +312,9 @@ void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
 	    b = 0.0f;
 	    break;
 	case Block::DIRT:
-	    r = 0.176f;
-	    g = 0.282f;
-	    b = 0.169f;
+	    r = 0.152f;
+	    g = 0.056f;
+	    b = 0.056f;
 	    break;
 	default:
 	    r = 0.0f;
