@@ -27,9 +27,10 @@ void generateChunk(Chunk::Chunk *chunk)
 
 Block block;
 
-std::mt19937 mt;
-OpenSimplexNoise::Noise noiseGen1(1234);
-OpenSimplexNoise::Noise noiseGen2(12345);
+std::random_device dev;
+std::mt19937 mt(dev());
+OpenSimplexNoise::Noise noiseGen1(mt());
+OpenSimplexNoise::Noise noiseGen2(mt());
 
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> grassNoiseLUT;
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> dirtNoiseLUT;
