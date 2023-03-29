@@ -19,10 +19,11 @@
 
 void generatePyramid(Chunk::Chunk *chunk);
 void generateNoise(Chunk::Chunk *chunk);
+void generateNoise3D(Chunk::Chunk *chunk);
 
 void generateChunk(Chunk::Chunk *chunk)
 {
-    generateNoise(chunk);
+    generateNoise3D(chunk);
 }
 
 Block block;
@@ -69,6 +70,42 @@ void generateNoise(Chunk::Chunk *chunk)
         else if (y >= stoneLevel && y < grassNoise)
             block = Block::DIRT;
         else if (y == grassNoise)
+            block = Block::GRASS;
+        else
+            block = Block::AIR;
+
+        if (block != block_prev)
+        {
+            chunk->setBlocks(block_prev_start, s, block_prev);
+            block_prev_start = s;
+        }
+
+        block_prev = block;
+    }
+
+    chunk->setBlocks(block_prev_start, CHUNK_VOLUME, block_prev);
+}
+
+void generateNoise3D(Chunk::Chunk *chunk) {
+    Block block_prev{Block::AIR};
+    int block_prev_start{0};
+
+    // A space filling curve is continuous, so there is no particular order
+    for (int s = 0; s < CHUNK_VOLUME; s++)
+    {
+
+        int x = HILBERT_XYZ_DECODE[s][0] + CHUNK_SIZE * chunk->getPosition().x;
+        int y = HILBERT_XYZ_DECODE[s][1] + CHUNK_SIZE * chunk->getPosition().y;
+        int z = HILBERT_XYZ_DECODE[s][2] + CHUNK_SIZE * chunk->getPosition().z;
+        int d2 = HILBERT_XYZ_DECODE[s][0] * CHUNK_SIZE + HILBERT_XYZ_DECODE[s][2];
+
+	double noise = noiseGen1.eval(x * 0.025, y*0.025, z * 0.025);
+
+        if (noise < 0)
+            block = Block::STONE;
+        else if (noise >= 0 && noise < 0.1)
+            block = Block::DIRT;
+        else if (noise >= 0.1 && noise < 0.2)
             block = Block::GRASS;
         else
             block = Block::AIR;
