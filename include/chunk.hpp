@@ -1,6 +1,8 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -8,6 +10,7 @@
 #include <array>
 #include <bitset>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 #include "block.hpp"
@@ -15,7 +18,7 @@
 #include "intervalmap.hpp"
 #include "shader.hpp"
 
-#define CHUNK_SIZE 16
+#define CHUNK_SIZE 32
 #define CHUNK_VOLUME (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
 #define CHUNK_MAX_INDEX (CHUNK_VOLUME - 1)
 
@@ -50,13 +53,17 @@ namespace Chunk
 	std::unique_ptr<Block[]> getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
     public:
-        GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
+        GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, nIndices{0};
         
         std::mutex mutex_state;
 
 	std::vector<GLfloat> vertices;
 	std::vector<GLfloat> colors;
 	std::vector<GLuint> indices;
+
+	std::unordered_map<glm::vec3, std::tuple<GLuint, glm::vec3, glm::vec3> > vertices_map; // index,
+												       // normal,
+	std::vector<glm::vec3> index_to_vertex;
 
     private:
         glm::vec3 position{};

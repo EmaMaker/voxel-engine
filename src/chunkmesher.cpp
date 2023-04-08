@@ -1,6 +1,3 @@
-#include <array>
-#include <memory>
-
 #include "block.hpp"
 #include "chunk.hpp"
 #include "chunkmesher.hpp"
@@ -8,8 +5,15 @@
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
+#include <unordered_map>
+#include <memory>
+#include <tuple>
+
+
 namespace chunkmesher{
     
+int indexCount{0};
+
 void mesh(Chunk::Chunk* chunk)
 {
 
@@ -29,10 +33,13 @@ void mesh(Chunk::Chunk* chunk)
      */
 
     // Cleanup previous data
+    chunk->vertices_map.clear();
+    chunk->index_to_vertex.clear();
+    indexCount = 0;
     chunk->vertices.clear();
     chunk->indices.clear();
     chunk->colors.clear();
-    chunk->vIndex = 0;
+    chunk->nIndices = 0;
 
     // Abort if chunk is empty
     if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
@@ -184,8 +191,26 @@ void mesh(Chunk::Chunk* chunk)
 
 void sendtogpu(Chunk::Chunk* chunk)
 {
-    if (chunk->vIndex > 0)
+    if (chunk->indices.size() > 0)
     {
+	for(int i = 0; i < chunk->index_to_vertex.size(); i++){
+	    glm::vec3 v = chunk->index_to_vertex[i];
+	    auto t = chunk->vertices_map.at(v);;
+	    glm::vec3 n = std::get<1>(t);
+	    glm::vec3 c = std::get<2>(t);
+
+	    chunk->vertices.push_back(v.x);
+	    chunk->vertices.push_back(v.y);
+	    chunk->vertices.push_back(v.z);
+
+	    chunk->vertices.push_back(n.x);
+	    chunk->vertices.push_back(n.y);
+	    chunk->vertices.push_back(n.z);
+
+	    chunk->colors.push_back(c.x);
+	    chunk->colors.push_back(c.y);
+	    chunk->colors.push_back(c.z);
+	}
 
 	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
 	glBindVertexArray(chunk->VAO);
@@ -215,9 +240,11 @@ void sendtogpu(Chunk::Chunk* chunk)
 	glBindVertexArray(0);
 
 	// save the number of indices of the mesh, it is needed later for drawing
-	chunk->vIndex = (GLuint)(chunk->indices.size());
+	chunk->nIndices = (GLuint)(chunk->indices.size());
 
 	// once data has been sent to the GPU, it can be cleared from system RAM
+	chunk->vertices_map.clear();
+	chunk->index_to_vertex.clear();
 	chunk->vertices.clear();
 	chunk->indices.clear();
 	chunk->colors.clear();
@@ -230,7 +257,7 @@ void sendtogpu(Chunk::Chunk* chunk)
 void draw(Chunk::Chunk* chunk, glm::mat4 model)
 {
 
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
     if(chunk->getState(Chunk::CHUNK_STATE_MESH_LOADED))
     {
         theShader->use();
@@ -239,7 +266,7 @@ void draw(Chunk::Chunk* chunk, glm::mat4 model)
         theShader->setMat4("projection", theCamera.getProjection());
 
         glBindVertexArray(chunk->VAO);
-        glDrawElements(GL_TRIANGLES, chunk->vIndex , GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, chunk->nIndices , GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
     }
 }
@@ -248,86 +275,86 @@ void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
 	glm::vec3 bottomRight, glm::vec3 normal, Block block, bool backFace)
 {
 
-    chunk->vertices.push_back(bottomLeft.x);
-    chunk->vertices.push_back(bottomLeft.y);
-    chunk->vertices.push_back(bottomLeft.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
-
-    chunk->vertices.push_back(bottomRight.x);
-    chunk->vertices.push_back(bottomRight.y);
-    chunk->vertices.push_back(bottomRight.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
-
-    chunk->vertices.push_back(topLeft.x);
-    chunk->vertices.push_back(topLeft.y);
-    chunk->vertices.push_back(topLeft.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
-
-    chunk->vertices.push_back(topRight.x);
-    chunk->vertices.push_back(topRight.y);
-    chunk->vertices.push_back(topRight.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
-
-
-    if (backFace)
-    {   
-        chunk->indices.push_back(chunk->vIndex + 2);
-        chunk->indices.push_back(chunk->vIndex);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex + 3);
-        chunk->indices.push_back(chunk->vIndex + 2);
-    }
-    else
-    {
-        chunk->indices.push_back(chunk->vIndex + 2);
-        chunk->indices.push_back(chunk->vIndex + 3);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex);
-        chunk->indices.push_back(chunk->vIndex + 2);
-    }
-    chunk->vIndex += 4;
-
     // ugly switch case for colors
-    GLfloat r, g, b;
+    glm::vec3 color = glm::vec3(0.0f);
     switch (block)
     {
 	case Block::STONE:
-	    r = 0.588f;
-	    g = 0.588f;
-	    b = 0.588f;
+	    color = glm::vec3(0.588f);
 	    break;
 	case Block::GRASS:
-	    r = 0.05f;
-	    g = 0.725f;
-	    b = 0.0f;
+	    color = glm::vec3(0.05f, 0.725f, 0.0f);
 	    break;
 	case Block::DIRT:
-	    r = 0.152f;
-	    g = 0.056f;
-	    b = 0.056f;
-	    break;
-	default:
-	    r = 0.0f;
-	    g = 0.0f;
-	    b = 0.0f;
+	    color = glm::vec3(0.152f, 0.056f, 0.056f);
 	    break;
     }
 
-    for (int i = 0; i < 4; i++)
+    int ibottomLeft, ibottomRight, itopLeft, itopRight;
+
+    if(chunk->vertices_map.find(bottomLeft) == chunk->vertices_map.end()){
+	chunk->index_to_vertex.push_back(bottomLeft);
+	ibottomLeft = indexCount++;
+	chunk->vertices_map[bottomLeft] = std::make_tuple(ibottomLeft, normal, color);
+    }else{
+	auto vm = chunk->vertices_map[bottomLeft];
+	ibottomLeft = std::get<0>(vm);
+	chunk->vertices_map[bottomLeft] = std::make_tuple(std::get<0>(vm), std::get<1>(vm) + normal,
+	    std::get<2>(vm) + color);
+    }
+
+    if(chunk->vertices_map.find(bottomRight) == chunk->vertices_map.end()){
+	chunk->index_to_vertex.push_back(bottomRight);
+	ibottomRight = indexCount++;
+	chunk->vertices_map[bottomRight] = std::make_tuple(ibottomRight, normal, color);
+    }else{
+	auto vm = chunk->vertices_map[bottomRight];
+	ibottomRight = std::get<0>(vm);
+	chunk->vertices_map[bottomRight] = std::make_tuple(std::get<0>(vm), std::get<1>(vm) + normal,
+	    std::get<2>(vm) + color);
+    }
+
+    if(chunk->vertices_map.find(topLeft) == chunk->vertices_map.end()){
+	chunk->index_to_vertex.push_back(topLeft);
+	itopLeft = indexCount++;
+	chunk->vertices_map[topLeft] = std::make_tuple(itopLeft, normal, color);
+    }else{
+	auto vm = chunk->vertices_map[topLeft];
+	itopLeft = std::get<0>(vm);
+	chunk->vertices_map[topLeft] = std::make_tuple(std::get<0>(vm), std::get<1>(vm) + normal,
+	    std::get<2>(vm) + color);
+    }
+
+    if(chunk->vertices_map.find(topRight) == chunk->vertices_map.end()){
+	chunk->index_to_vertex.push_back(topRight);
+	itopRight = indexCount++;
+	chunk->vertices_map[topRight] = std::make_tuple(itopRight, normal, color);
+    }else{
+	auto vm = chunk->vertices_map[topRight];
+	itopRight = std::get<0>(vm);
+	chunk->vertices_map[topRight] = std::make_tuple(std::get<0>(vm), std::get<1>(vm) + normal,
+	    std::get<2>(vm) + color);
+    }
+
+    // bottomLeft, bottomRight, topLeft, topRight
+    if (backFace)
+    {   
+	chunk->indices.push_back(itopLeft);
+	chunk->indices.push_back(ibottomLeft);
+	chunk->indices.push_back(ibottomRight);
+	chunk->indices.push_back(ibottomRight);
+	chunk->indices.push_back(itopRight);
+	chunk->indices.push_back(itopLeft);
+    }
+    else
     {
-        chunk->colors.push_back(r);
-        chunk->colors.push_back(g);
-        chunk->colors.push_back(b);
+	chunk->indices.push_back(itopLeft);
+	chunk->indices.push_back(itopRight);
+	chunk->indices.push_back(ibottomRight);
+	chunk->indices.push_back(ibottomRight);
+	chunk->indices.push_back(ibottomLeft);
+	chunk->indices.push_back(itopLeft);
     }
 }
+
 };
