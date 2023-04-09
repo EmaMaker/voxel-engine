@@ -4,13 +4,15 @@
 #include <iostream>
 #include <thread>
 
-#include "chunkmanager.hpp"
-#include "main.hpp"
-#include "spacefilling.hpp"
-#include "shader.hpp"
-
 #define GLOBALS_DEFINER
 #include "globals.hpp"
+#undef GLOBALS_DEFINER
+
+#include "chunkmanager.hpp"
+#include "main.hpp"
+#include "renderer.hpp"
+#include "spacefilling.hpp"
+#include "shader.hpp"
 
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -59,11 +61,10 @@ int main()
     std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
     SpaceFilling::initLUT();
+    renderer::init();
     chunkmanager::init();
     std::thread genThread = chunkmanager::initGenThread();
     std::thread meshThread = chunkmanager::initMeshThread();
-
-    theShader = new Shader{"shaders/shader.vs", "shaders/shader.fs"};
 
     while (!glfwWindowShouldClose(window))
     {
@@ -88,14 +89,15 @@ int main()
 
         // Camera
         theCamera.update(window, deltaTime);
-	theShader->setFloat("u_time", currentFrame);
-	theShader->setVec3("viewPos", theCamera.getPos());
 	
 	// Reset blockping timeout if 200ms have passed
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
         // ChunkManager
         chunkmanager::update(deltaTime);
+
+	// Render pass
+	renderer::render();
 
         // Swap buffers to avoid tearing
         glfwSwapBuffers(window);
@@ -110,8 +112,7 @@ int main()
 
     // Cleanup allocated memory
     chunkmanager::destroy();
-    delete theShader;
-
+    renderer::destroy();
 
     glfwTerminate();
     return 0;

@@ -13,7 +13,7 @@
 #define RENDER_DISTANCE 16
 
 extr Camera theCamera;
-extr Shader* theShader;
+constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
 
 extr uint32_t MORTON_XYZ_ENCODE[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
 extr uint32_t MORTON_XYZ_DECODE[CHUNK_VOLUME][3];

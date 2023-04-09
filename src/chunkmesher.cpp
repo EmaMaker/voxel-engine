@@ -227,23 +227,6 @@ void sendtogpu(Chunk::Chunk* chunk)
     chunk->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
 }
 
-void draw(Chunk::Chunk* chunk, glm::mat4 model)
-{
-
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
-    if(chunk->getState(Chunk::CHUNK_STATE_MESH_LOADED))
-    {
-        theShader->use();
-        theShader->setMat4("model", model);
-        theShader->setMat4("view", theCamera.getView());
-        theShader->setMat4("projection", theCamera.getProjection());
-
-        glBindVertexArray(chunk->VAO);
-        glDrawElements(GL_TRIANGLES, chunk->vIndex , GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-    }
-}
-
 void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
 	glm::vec3 bottomRight, glm::vec3 normal, Block block, bool backFace)
 {

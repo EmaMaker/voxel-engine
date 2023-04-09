@@ -17,13 +17,11 @@
 #include <unordered_map>
 #include <thread>
 
-std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
-
-constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
-std::array<std::array<int, 3>, chunks_volume> chunks_indices;
-
 namespace chunkmanager
 {
+    std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
+    std::array<std::array<int, 3>, chunks_volume> chunks_indices;
+
     // thread management
     std::mutex mutex_queue_generate;
     std::mutex mutex_queue_mesh;
@@ -35,10 +33,8 @@ namespace chunkmanager
     // update variables
     uint8_t f = 0;
     int rr{RENDER_DISTANCE * RENDER_DISTANCE};
-    glm::vec4 frustumPlanes[6];
     glm::vec3 cameraPos;
     int chunkX, chunkY, chunkZ;
-    int total{0}, toGpu{0};
 
     // disposal
     std::unordered_map<uint32_t, float> to_delete;
@@ -145,7 +141,6 @@ namespace chunkmanager
         f |= mutex_queue_mesh.try_lock() << 1;
 
         cameraPos = theCamera.getPos();
-	theCamera.getFrustumPlanes(frustumPlanes, true);
         chunkX=static_cast<int>(cameraPos.x) / CHUNK_SIZE;
 	chunkY=static_cast<int>(cameraPos.y) / CHUNK_SIZE;
 	chunkZ=static_cast<int>(cameraPos.z) / CHUNK_SIZE;
@@ -186,12 +181,6 @@ namespace chunkmanager
 			chunks_indices[i][0] + chunkX,
 			chunks_indices[i][1] + chunkY,
 			chunks_indices[i][2] + chunkZ);
-
-	//std::cout << "Chunks to mesh: " << to_mesh.size() << "\n";
-	//std::cout << "Chunks to generate: " << to_generate.size() << "\n";
-        //std::cout << "Total chunks to draw: " << total << ". Sent to GPU: " << toGpu << "\n";
-        //total = 0;
-        //toGpu = 0;
 
 	// Unlock mutexes if previously locked. Unlocking a mutex not locked by the current thread
 	// or already locked is undefined behaviour, so checking has to be done
@@ -235,35 +224,6 @@ namespace chunkmanager
                 else
                 {
                     if (!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) chunkmesher::sendtogpu(c);
-
-		    // Frustum Culling of chunk
-		    total++;
-
-		    glm::vec3 chunk = c->getPosition();
-		    glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
-		    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
-
-		    // Check if all the corners of the chunk are outside any of the planes
-		    // TODO (?) implement frustum culling as per (Inigo Quilez)[https://iquilezles.org/articles/frustumcorrect/], and check each
-		    // plane against each corner of the chunk 
-		    bool out=false;
-		    int a{0};
-		    for(int p = 0; p < 6; p++){
-			a = 0;
-			for(int i = 0; i < 8; i++)  a += glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
-					+ ((float)((i & 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >> 2))*CHUNK_SIZE, 1.0)) < 0.0;
-
-			if(a==8){
-			    out=true;
-			    break;
-			}
-		    }
-
-		    if (!out)
-		    {
-			toGpu++;
-			chunkmesher::draw(c, model);
-		    }
                 }
             }
             c->mutex_state.unlock();
@@ -341,6 +301,9 @@ namespace chunkmanager
     uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k){
 	 return i | (j << 10) | (k << 20); 
     }
+
+    std::unordered_map<std::uint32_t, Chunk::Chunk*>& getChunks(){ return chunks; }
+    std::array<std::array<int, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
     void destroy()
     {

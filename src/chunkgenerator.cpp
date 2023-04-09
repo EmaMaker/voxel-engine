@@ -101,11 +101,11 @@ void generateNoise3D(Chunk::Chunk *chunk) {
 
 	double noise = noiseGen1.eval(x * 0.025, y*0.025, z * 0.025);
 
-        if (noise < 0)
+        if (noise < -0.1)
             block = Block::STONE;
-        else if (noise >= 0 && noise < 0.1)
+        else if (noise >= -0.1 && noise < 0)
             block = Block::DIRT;
-        else if (noise >= 0.1 && noise < 0.2)
+        else if (noise >= 0 && noise < 0.08)
             block = Block::GRASS;
         else
             block = Block::AIR;
