@@ -152,7 +152,7 @@ void mesh(Chunk::Chunk* chunk)
                                                x[2] + du[2] + dv[2]),
                                      glm::vec3(x[0] + dv[0], x[1] + dv[1], x[2] + dv[2]),
 				     glm::vec3(backFace ? q[0] : -q[0], backFace ? q[1] : -q[1], backFace ? q[2] : -q[2] ),
-                                     mask[n], backFace);
+                                     mask[n], dim, backFace);
                             }
 
                             for (l = 0; l < h; ++l)
@@ -205,7 +205,7 @@ void sendtogpu(Chunk::Chunk* chunk)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, chunk->indices.size() * sizeof(GLuint), &(chunk->indices[0]), GL_STATIC_DRAW);
 
-	// color attribute
+	// texcoords attribute
 	glBindBuffer(GL_ARRAY_BUFFER, chunk->colorBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chunk->colors.size() * sizeof(GLfloat), &(chunk->colors[0]), GL_STATIC_DRAW);
 
@@ -228,7 +228,7 @@ void sendtogpu(Chunk::Chunk* chunk)
 }
 
 void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
-	glm::vec3 bottomRight, glm::vec3 normal, Block block, bool backFace)
+	glm::vec3 bottomRight, glm::vec3 normal, Block block, int dim, bool backFace)
 {
 
     chunk->vertices.push_back(bottomLeft.x);
@@ -259,6 +259,56 @@ void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
     chunk->vertices.push_back(normal.y);
     chunk->vertices.push_back(normal.z);
 
+    // texcoords
+    if(dim == 0){
+	chunk->colors.push_back(0);
+	chunk->colors.push_back(0);
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(bottomRight.z - bottomLeft.z));
+	chunk->colors.push_back(abs(bottomRight.y - bottomLeft.y));
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(topLeft.z - bottomLeft.z));
+	chunk->colors.push_back(abs(topLeft.y - bottomLeft.y));
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(topRight.z - bottomLeft.z));
+	chunk->colors.push_back(abs(topRight.y - bottomLeft.y));
+	chunk->colors.push_back(((int)block) - 2);
+    }else if(dim == 1){
+	chunk->colors.push_back(0);
+	chunk->colors.push_back(0);
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(bottomRight.z - bottomLeft.z));
+	chunk->colors.push_back(abs(bottomRight.x - bottomLeft.x));
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(topLeft.z - bottomLeft.z));
+	chunk->colors.push_back(abs(topLeft.x - bottomLeft.x));
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(topRight.z - bottomLeft.z));
+	chunk->colors.push_back(abs(topRight.x - bottomLeft.x));
+	chunk->colors.push_back(((int)block) - 2);
+    }else{
+	chunk->colors.push_back(0);
+	chunk->colors.push_back(0);
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(bottomRight.x - bottomLeft.x));
+	chunk->colors.push_back(abs(bottomRight.y - bottomLeft.y));
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(topLeft.x - bottomLeft.x));
+	chunk->colors.push_back(abs(topLeft.y - bottomLeft.y));
+	chunk->colors.push_back(((int)block) - 2);
+
+	chunk->colors.push_back(abs(topRight.x - bottomLeft.x));
+	chunk->colors.push_back(abs(topRight.y - bottomLeft.y));
+	chunk->colors.push_back(((int)block) - 2);
+    }
 
     if (backFace)
     {   
@@ -279,38 +329,5 @@ void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
         chunk->indices.push_back(chunk->vIndex + 2);
     }
     chunk->vIndex += 4;
-
-    // ugly switch case for colors
-    GLfloat r, g, b;
-    switch (block)
-    {
-	case Block::STONE:
-	    r = 0.588f;
-	    g = 0.588f;
-	    b = 0.588f;
-	    break;
-	case Block::GRASS:
-	    r = 0.05f;
-	    g = 0.725f;
-	    b = 0.0f;
-	    break;
-	case Block::DIRT:
-	    r = 0.152f;
-	    g = 0.056f;
-	    b = 0.056f;
-	    break;
-	default:
-	    r = 0.0f;
-	    g = 0.0f;
-	    b = 0.0f;
-	    break;
-    }
-
-    for (int i = 0; i < 4; i++)
-    {
-        chunk->colors.push_back(r);
-        chunk->colors.push_back(g);
-        chunk->colors.push_back(b);
-    }
 }
 };

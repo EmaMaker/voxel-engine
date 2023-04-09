@@ -39,7 +39,7 @@ public:
 	    treemap[end] = end_prev_entry->second;
 
 	    // A little optimization: delete next key if it is of the same value of the end key
-	    if(end_next_entry->second == treemap[end]) treemap.erase(end_next_entry);
+	    //if(end_next_entry->second == treemap[end]) treemap.erase(end_next_entry);
         }
 
         // insert the start key. Replaces whatever value is already there. Do not place if the element before is of the same value

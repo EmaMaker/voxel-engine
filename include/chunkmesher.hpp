@@ -17,7 +17,7 @@ namespace chunkmesher{
     void draw(Chunk::Chunk* chunk, glm::mat4 model);
 
     void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
-	    glm::vec3 bottomRight, glm::vec3 normal, Block block, bool backFace);
+	    glm::vec3 bottomRight, glm::vec3 normal, Block block, int dim, bool backFace);
 }
 
 

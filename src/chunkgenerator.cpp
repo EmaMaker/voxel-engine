@@ -23,7 +23,7 @@ void generateNoise3D(Chunk::Chunk *chunk);
 
 void generateChunk(Chunk::Chunk *chunk)
 {
-    generateNoise3D(chunk);
+    generateNoise(chunk);
 }
 
 Block block;
