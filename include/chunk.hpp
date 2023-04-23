@@ -5,6 +5,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <atomic>
 #include <array>
 #include <bitset>
 #include <mutex>
@@ -24,9 +25,9 @@ namespace Chunk
 
     constexpr uint8_t CHUNK_STATE_GENERATED = 1;
     constexpr uint8_t CHUNK_STATE_MESHED = 2;
-    constexpr uint8_t CHUNK_STATE_MESH_LOADED = 3;
-    constexpr uint8_t CHUNK_STATE_LOADED = 4;
-    constexpr uint8_t CHUNK_STATE_EMPTY = 7;
+    constexpr uint8_t CHUNK_STATE_MESH_LOADED = 4;
+    constexpr uint8_t CHUNK_STATE_LOADED = 8;
+    constexpr uint8_t CHUNK_STATE_EMPTY = 64;
 
     int coord3DTo1D(int x, int y, int z);
 
@@ -39,8 +40,8 @@ namespace Chunk
 
     public:
         glm::vec3 getPosition() { return this->position; }
-        std::bitset<8> getTotalState() { return this->state; }
-        bool getState(uint8_t n) { return this->state.test(n); }
+        uint8_t getTotalState() { return this->state; }
+        bool getState(uint8_t n) { return (this->state & n) == n; }
         void setState(uint8_t nstate, bool value);
 
         void setBlock(Block b, int x, int y, int z);
@@ -62,7 +63,7 @@ namespace Chunk
         glm::vec3 position{};
         IntervalMap<Block> blocks{};
         
-        std::bitset<8> state{0};
+	std::atomic_uint8_t state{0};
     };
 };
 

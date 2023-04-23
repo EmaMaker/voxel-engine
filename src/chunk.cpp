@@ -25,6 +25,7 @@ namespace Chunk
 	glGenBuffers(1, &(this->VBO));
 	glGenBuffers(1, &(this->EBO));
 
+	mutex_state.unlock();
     }
 
     Chunk ::~Chunk()
@@ -60,8 +61,8 @@ namespace Chunk
     void Chunk::setState(uint8_t nstate, bool value)
     {
         if (value)
-            this->state.set((size_t)nstate);
+	    this->state.fetch_or(nstate);
         else
-            this->state.reset((size_t)nstate);
+	    this->state.fetch_and(~nstate);
     }
 }
