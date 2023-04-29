@@ -84,6 +84,7 @@ void generateNoise(Chunk::Chunk *chunk)
     }
 
     chunk->setBlocks(block_prev_start, CHUNK_VOLUME, block_prev);
+    chunk->setState(Chunk::CHUNK_STATE_GENERATED, true);
 }
 
 void generateNoise3D(Chunk::Chunk *chunk) {

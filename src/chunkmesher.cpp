@@ -35,12 +35,16 @@ void mesh(Chunk::Chunk* chunk)
     chunk->vIndex = 0;
 
     // Abort if chunk is empty
-    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) return;
+    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)){
+	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
+	return;
+    }
 
     // convert tree to array since it is easier to work with it
     int length{0};
     std::unique_ptr<Block[]> blocks = chunk->getBlocksArray(&length);
     if(length == 0) {
+	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
 	return;
     }
     
@@ -180,13 +184,14 @@ void mesh(Chunk::Chunk* chunk)
             }
         }
     }
+
+    chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
 }
 
 void sendtogpu(Chunk::Chunk* chunk)
 {
     if (chunk->vIndex > 0)
     {
-
 	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
 	glBindVertexArray(chunk->VAO);
 

@@ -27,6 +27,8 @@ namespace Chunk
     constexpr uint8_t CHUNK_STATE_MESHED = 2;
     constexpr uint8_t CHUNK_STATE_MESH_LOADED = 4;
     constexpr uint8_t CHUNK_STATE_LOADED = 8;
+    constexpr uint8_t CHUNK_STATE_OUTOFVISION = 16;
+    constexpr uint8_t CHUNK_STATE_UNLOADED = 32;
     constexpr uint8_t CHUNK_STATE_EMPTY = 64;
 
     int coord3DTo1D(int x, int y, int z);
@@ -39,6 +41,9 @@ namespace Chunk
         ~Chunk();
 
     public:
+	void createBuffers();
+	void deleteBuffers();
+
         glm::vec3 getPosition() { return this->position; }
         uint8_t getTotalState() { return this->state; }
         bool getState(uint8_t n) { return (this->state & n) == n; }
@@ -52,9 +57,8 @@ namespace Chunk
 
     public:
         GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
+	std::atomic<float> unload_timer{0};
         
-        std::mutex mutex_state;
-
 	std::vector<GLfloat> vertices;
 	std::vector<GLfloat> colors;
 	std::vector<GLuint> indices;

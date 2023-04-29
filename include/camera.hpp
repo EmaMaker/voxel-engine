@@ -6,7 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <iostream>
+#include <atomic>
 
 class Camera
 {
@@ -38,6 +38,9 @@ public:
         if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
             this->cameraPos -= cameraSpeed * cameraUp;
 
+	posX = cameraPos.x;
+	posY = cameraPos.y;
+	posZ = cameraPos.z;
 
         direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
         direction.y = sin(glm::radians(pitch));
@@ -78,6 +81,10 @@ public:
     glm::mat4 getView() { return view; }
     glm::mat4 getProjection() { return projection; }
 
+    float getAtomicPosX() { return posX; }
+    float getAtomicPosY() { return posY; }
+    float getAtomicPosZ() { return posZ; }
+
     // Plane extraction as per Gribb&Hartmann
     // 6 planes, each with 4 components (a,b,c,d)
     void getFrustumPlanes(glm::vec4 planes[6], bool normalize)
@@ -114,6 +121,8 @@ private:
 
     float lastX = 400, lastY = 300;
     float yaw, pitch;
+
+    std::atomic<float> posX, posY, posZ;
 };
 
 #endif
