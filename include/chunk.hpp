@@ -16,7 +16,7 @@
 #include "intervalmap.hpp"
 #include "shader.hpp"
 
-#define CHUNK_SIZE 16
+#define CHUNK_SIZE 32
 #define CHUNK_VOLUME (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
 #define CHUNK_MAX_INDEX (CHUNK_VOLUME - 1)
 
