@@ -104,6 +104,20 @@ namespace chunkmanager
 
 		a.release();
 	    }
+
+	    Chunk::Chunk* n;
+	    nUnloaded = 0;
+	    while(chunks_todelete.try_pop(n)){
+		int x = static_cast<uint16_t>(n->getPosition().x);
+		int y = static_cast<uint16_t>(n->getPosition().y);
+		int z = static_cast<uint16_t>(n->getPosition().z);
+		if(x > 1023 || y > 1023 || z > 1023) continue;
+		const uint32_t index = calculateIndex(x, y, z);
+
+		delete n;
+		chunks.erase(index);
+		nUnloaded++;
+	    }
 	}
     }
 

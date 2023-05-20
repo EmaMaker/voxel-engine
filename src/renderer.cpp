@@ -55,14 +55,6 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
-	for(auto& n : render_todelete){
-	    // we can get away with unsafe erase as access to the container is only done by this
-	    // thread
-	    n->deleteBuffers();
-	    chunks_torender.unsafe_erase(n);
-	}
-	render_todelete.clear();
-
 	chunkmesher::MeshData* m;
 	while(MeshDataQueue.try_pop(m)){
 	    chunkmesher::sendtogpu(m);
@@ -73,25 +65,7 @@ namespace renderer{
 	    if(! (c->getState(Chunk::CHUNK_STATE_MESHED))) continue;
 	    
 	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
-	    if(dist >= static_cast<float>(RENDER_DISTANCE)*1.75f){
-		// When the chunk is outside render distance
-
-		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
-		    if(glfwGetTime() - c->unload_timer > UNLOAD_TIMEOUT){
-			// If chunk was already out and enough time has passed
-			// Mark the chunk to be unloaded
-			// And mark is to be removed from the render set
-			render_todelete.push_back(c);
-			chunkmanager::getDeleteVector().push(c);
-		    }
-		} else{
-		    // Mark has out of vision and annotate when it started
-		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
-		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-		    c->unload_timer = glfwGetTime();
-		}
-		
-	    }else if(dist <= static_cast<float>(RENDER_DISTANCE)){
+	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
 		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
 
 		// reset out-of-vision and unload flags
@@ -133,8 +107,34 @@ namespace renderer{
 			glBindVertexArray(0);
 		    }
 		}
+	    }else{
+		// When the chunk is outside render distance
+
+		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
+		    if(glfwGetTime() - c->unload_timer > UNLOAD_TIMEOUT){
+			// If chunk was already out and enough time has passed
+			// Mark the chunk to be unloaded
+			// And mark is to be removed from the render set
+			render_todelete.push_back(c);
+		    }
+		} else{
+		    // Mark has out of vision and annotate when it started
+		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
+		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+		    c->unload_timer = glfwGetTime();
+		}
+		
 	    }
 	}
+
+	for(auto& c : render_todelete){
+	    // we can get away with unsafe erase as access to the container is only done by this
+	    // thread
+	    c->deleteBuffers();
+	    chunks_torender.unsafe_erase(c);
+	    chunkmanager::getDeleteVector().push(c);
+	}
+	render_todelete.clear();
     }
 
     void destroy(){
