@@ -6,6 +6,8 @@
 
 #include <thread>
 
+#include <oneapi/tbb/concurrent_queue.h>
+
 #include "chunk.hpp"
 #include "globals.hpp"
 
@@ -17,6 +19,7 @@ namespace chunkmanager
     
     void stop();
     void destroy();
+    oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector();
     std::array<std::array<int, 3>, chunks_volume>& getChunksIndices();
     void update();
 }

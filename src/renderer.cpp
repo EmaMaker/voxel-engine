@@ -1,19 +1,24 @@
 #include "renderer.hpp"
 
+#include <oneapi/tbb/concurrent_vector.h>
+#include <oneapi/tbb/concurrent_queue.h>
+
 #include "chunkmanager.hpp"
 #include "chunkmesher.hpp"
 #include "globals.hpp"
 #include "stb_image.h"
 
 namespace renderer{
-    oneapi::tbb::concurrent_unordered_set<Chunk::Chunk*> chunks_torender;
-    oneapi::tbb::concurrent_unordered_set<Chunk::Chunk*> render_todelete;
+    RenderSet chunks_torender;
+    oneapi::tbb::concurrent_vector<Chunk::Chunk*> render_todelete;
+    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*> MeshDataQueue;
 
     Shader* theShader;
     GLuint chunkTexture;
 
     Shader* getRenderShader() { return theShader; }
-    oneapi::tbb::concurrent_unordered_set<Chunk::Chunk*>& getChunksToRender(){ return chunks_torender; }
+    RenderSet& getChunksToRender(){ return chunks_torender; }
+    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
 
 
     void init(){
@@ -50,18 +55,45 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
-	for(Chunk::Chunk* c : chunks_torender){
+	for(auto& n : render_todelete){
+	    // we can get away with unsafe erase as access to the container is only done by this
+	    // thread
+	    n->deleteBuffers();
+	    chunks_torender.unsafe_erase(n);
+	}
+	render_todelete.clear();
+
+	chunkmesher::MeshData* m;
+	while(MeshDataQueue.try_pop(m)){
+	    chunkmesher::sendtogpu(m);
+	    chunkmesher::getMeshDataQueue().push(m);
+	}
+
+	for(auto& c : chunks_torender){
 	    if(! (c->getState(Chunk::CHUNK_STATE_MESHED))) continue;
+	    
+	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
+	    if(dist >= static_cast<float>(RENDER_DISTANCE)*1.75f){
+		// When the chunk is outside render distance
 
-	    // If the mesh is ready send it to the gpu
-	    if(! (c->getState(Chunk::CHUNK_STATE_MESH_LOADED))){
-		if(c->VAO == 0) c->createBuffers();
-		chunkmesher::sendtogpu(c);
-		c->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
-	    }
+		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
+		    if(glfwGetTime() - c->unload_timer > UNLOAD_TIMEOUT){
+			// If chunk was already out and enough time has passed
+			// Mark the chunk to be unloaded
+			// And mark is to be removed from the render set
+			render_todelete.push_back(c);
+			chunkmanager::getDeleteVector().push(c);
+		    }
+		} else{
+		    // Mark has out of vision and annotate when it started
+		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
+		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+		    c->unload_timer = glfwGetTime();
+		}
+		
+	    }else if(dist <= static_cast<float>(RENDER_DISTANCE)){
+		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
 
-	    if(glm::distance(c->getPosition(), cameraChunkPos) < static_cast<float>(RENDER_DISTANCE)){
-		// if chunk can be seen
 		// reset out-of-vision and unload flags
 		c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
 		c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
@@ -89,7 +121,7 @@ namespace renderer{
 
 		if (!out)
 		{
-		    if(c->vIndex > 0)
+		    if(c->numVertices > 0)
 		    {
 			// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
 			theShader->setMat4("model", model);
@@ -97,36 +129,14 @@ namespace renderer{
 			theShader->setMat4("projection", theCamera.getProjection());
 
 			glBindVertexArray(c->VAO);
-			glDrawElements(GL_TRIANGLES, c->vIndex , GL_UNSIGNED_INT, 0);
+			glDrawElements(GL_TRIANGLES, c->numVertices , GL_UNSIGNED_INT, 0);
 			glBindVertexArray(0);
 		    }
 		}
-
-	    }else{
-		// When the chunk is outside render distance
-
-		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION) && glfwGetTime() -
-			c->unload_timer > UNLOAD_TIMEOUT){
-		    // If chunk was already out and enough time has passed
-		    // Mark the chunk to be unloaded
-		    c->setState(Chunk::CHUNK_STATE_UNLOADED, true);
-		    // And delete it from the render set 
-		    render_todelete.insert(c);
-		} else{
-		    // Mark has out of vision and annotate when it started
-		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
-		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-		    c->unload_timer = glfwGetTime();
-		}
-		
 	    }
 	}
-	
-	for(Chunk::Chunk* i : render_todelete){
-	    chunks_torender.unsafe_erase(i);
-	}
-	render_todelete.clear();
     }
+
     void destroy(){
 	delete theShader;
     }

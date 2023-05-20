@@ -5,13 +5,20 @@
 #include "chunk.hpp"
 #include "chunkmesher.hpp"
 #include "globals.hpp"
+#include "renderer.hpp"
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
 namespace chunkmesher{
+
+oneapi::tbb::concurrent_queue<MeshData*> MeshDataQueue;
+
+oneapi::tbb::concurrent_queue<MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
     
 void mesh(Chunk::Chunk* chunk)
 {
+    MeshData* mesh_data;
+    if(!MeshDataQueue.try_pop(mesh_data)) return;
 
     /*
      * Taking inspiration from 0fps and the jme3 porting at
@@ -29,14 +36,16 @@ void mesh(Chunk::Chunk* chunk)
      */
 
     // Cleanup previous data
-    chunk->vertices.clear();
-    chunk->indices.clear();
-    chunk->colors.clear();
-    chunk->vIndex = 0;
+    chunk->numVertices = 0;
+    mesh_data->chunk = chunk;
+    mesh_data->vertices.clear();
+    mesh_data->indices.clear();
+    mesh_data->colors.clear();
 
     // Abort if chunk is empty
     if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)){
 	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
+	renderer::getMeshDataQueue().push(mesh_data);
 	return;
     }
 
@@ -45,6 +54,7 @@ void mesh(Chunk::Chunk* chunk)
     std::unique_ptr<Block[]> blocks = chunk->getBlocksArray(&length);
     if(length == 0) {
 	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
+	renderer::getMeshDataQueue().push(mesh_data);
 	return;
     }
     
@@ -150,7 +160,7 @@ void mesh(Chunk::Chunk* chunk)
                                 dv[2] = 0;
                                 dv[v] = h;
 
-                                quad(chunk, glm::vec3(x[0], x[1], x[2]),
+                                quad(mesh_data, glm::vec3(x[0], x[1], x[2]),
                                      glm::vec3(x[0] + du[0], x[1] + du[1], x[2] + du[2]),
                                      glm::vec3(x[0] + du[0] + dv[0], x[1] + du[1] + dv[1],
                                                x[2] + du[2] + dv[2]),
@@ -186,17 +196,21 @@ void mesh(Chunk::Chunk* chunk)
     }
 
     chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
+    renderer::getMeshDataQueue().push(mesh_data);
+    return;
 }
 
-void sendtogpu(Chunk::Chunk* chunk)
+void sendtogpu(MeshData* mesh_data)
 {
-    if (chunk->vIndex > 0)
+    if (mesh_data->chunk->numVertices > 0)
     {
-	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-	glBindVertexArray(chunk->VAO);
+	if(mesh_data->chunk->VAO == 0) mesh_data->chunk->createBuffers();
 
-	glBindBuffer(GL_ARRAY_BUFFER, chunk->VBO);
-	glBufferData(GL_ARRAY_BUFFER, chunk->vertices.size() * sizeof(GLfloat), &(chunk->vertices[0]), GL_STATIC_DRAW);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(mesh_data->chunk->VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->VBO);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
 
 	// position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
@@ -207,12 +221,12 @@ void sendtogpu(Chunk::Chunk* chunk)
 		    sizeof(float)));
 	glEnableVertexAttribArray(1);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, chunk->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, chunk->indices.size() * sizeof(GLuint), &(chunk->indices[0]), GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh_data->chunk->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_data->indices.size() * sizeof(GLuint), &(mesh_data->indices[0]), GL_STATIC_DRAW);
 
 	// texcoords attribute
-	glBindBuffer(GL_ARRAY_BUFFER, chunk->colorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, chunk->colors.size() * sizeof(GLfloat), &(chunk->colors[0]), GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->colorBuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->colors.size() * sizeof(GLfloat), &(mesh_data->colors[0]), GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
@@ -220,119 +234,118 @@ void sendtogpu(Chunk::Chunk* chunk)
 	glBindVertexArray(0);
 
 	// save the number of indices of the mesh, it is needed later for drawing
-	chunk->vIndex = (GLuint)(chunk->indices.size());
+	mesh_data->chunk->numVertices = (GLuint)(mesh_data->indices.size());
 
 	// once data has been sent to the GPU, it can be cleared from system RAM
-	chunk->vertices.clear();
-	chunk->indices.clear();
-	chunk->colors.clear();
+	mesh_data->vertices.clear();
+	mesh_data->indices.clear();
+	mesh_data->colors.clear();
     }
     
     // mark the chunk mesh has loaded on GPU
-    chunk->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
+    mesh_data->chunk->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
 }
 
-void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
+void quad(MeshData* mesh_data, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
 	glm::vec3 bottomRight, glm::vec3 normal, Block block, int dim, bool backFace)
 {
+    mesh_data->vertices.push_back(bottomLeft.x);
+    mesh_data->vertices.push_back(bottomLeft.y);
+    mesh_data->vertices.push_back(bottomLeft.z);
+    mesh_data->vertices.push_back(normal.x);
+    mesh_data->vertices.push_back(normal.y);
+    mesh_data->vertices.push_back(normal.z);
 
-    chunk->vertices.push_back(bottomLeft.x);
-    chunk->vertices.push_back(bottomLeft.y);
-    chunk->vertices.push_back(bottomLeft.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
+    mesh_data->vertices.push_back(bottomRight.x);
+    mesh_data->vertices.push_back(bottomRight.y);
+    mesh_data->vertices.push_back(bottomRight.z);
+    mesh_data->vertices.push_back(normal.x);
+    mesh_data->vertices.push_back(normal.y);
+    mesh_data->vertices.push_back(normal.z);
 
-    chunk->vertices.push_back(bottomRight.x);
-    chunk->vertices.push_back(bottomRight.y);
-    chunk->vertices.push_back(bottomRight.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
+    mesh_data->vertices.push_back(topLeft.x);
+    mesh_data->vertices.push_back(topLeft.y);
+    mesh_data->vertices.push_back(topLeft.z);
+    mesh_data->vertices.push_back(normal.x);
+    mesh_data->vertices.push_back(normal.y);
+    mesh_data->vertices.push_back(normal.z);
 
-    chunk->vertices.push_back(topLeft.x);
-    chunk->vertices.push_back(topLeft.y);
-    chunk->vertices.push_back(topLeft.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
-
-    chunk->vertices.push_back(topRight.x);
-    chunk->vertices.push_back(topRight.y);
-    chunk->vertices.push_back(topRight.z);
-    chunk->vertices.push_back(normal.x);
-    chunk->vertices.push_back(normal.y);
-    chunk->vertices.push_back(normal.z);
+    mesh_data->vertices.push_back(topRight.x);
+    mesh_data->vertices.push_back(topRight.y);
+    mesh_data->vertices.push_back(topRight.z);
+    mesh_data->vertices.push_back(normal.x);
+    mesh_data->vertices.push_back(normal.y);
+    mesh_data->vertices.push_back(normal.z);
 
     // texcoords
     if(dim == 0){
-	chunk->colors.push_back(0);
-	chunk->colors.push_back(0);
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(0);
+	mesh_data->colors.push_back(0);
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(bottomRight.z - bottomLeft.z));
-	chunk->colors.push_back(abs(bottomRight.y - bottomLeft.y));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(bottomRight.z - bottomLeft.z));
+	mesh_data->colors.push_back(abs(bottomRight.y - bottomLeft.y));
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(topLeft.z - bottomLeft.z));
-	chunk->colors.push_back(abs(topLeft.y - bottomLeft.y));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(topLeft.z - bottomLeft.z));
+	mesh_data->colors.push_back(abs(topLeft.y - bottomLeft.y));
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(topRight.z - bottomLeft.z));
-	chunk->colors.push_back(abs(topRight.y - bottomLeft.y));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(topRight.z - bottomLeft.z));
+	mesh_data->colors.push_back(abs(topRight.y - bottomLeft.y));
+	mesh_data->colors.push_back(((int)block) - 2);
     }else if(dim == 1){
-	chunk->colors.push_back(0);
-	chunk->colors.push_back(0);
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(0);
+	mesh_data->colors.push_back(0);
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(bottomRight.z - bottomLeft.z));
-	chunk->colors.push_back(abs(bottomRight.x - bottomLeft.x));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(bottomRight.z - bottomLeft.z));
+	mesh_data->colors.push_back(abs(bottomRight.x - bottomLeft.x));
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(topLeft.z - bottomLeft.z));
-	chunk->colors.push_back(abs(topLeft.x - bottomLeft.x));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(topLeft.z - bottomLeft.z));
+	mesh_data->colors.push_back(abs(topLeft.x - bottomLeft.x));
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(topRight.z - bottomLeft.z));
-	chunk->colors.push_back(abs(topRight.x - bottomLeft.x));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(topRight.z - bottomLeft.z));
+	mesh_data->colors.push_back(abs(topRight.x - bottomLeft.x));
+	mesh_data->colors.push_back(((int)block) - 2);
     }else{
-	chunk->colors.push_back(0);
-	chunk->colors.push_back(0);
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(0);
+	mesh_data->colors.push_back(0);
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(bottomRight.x - bottomLeft.x));
-	chunk->colors.push_back(abs(bottomRight.y - bottomLeft.y));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(bottomRight.x - bottomLeft.x));
+	mesh_data->colors.push_back(abs(bottomRight.y - bottomLeft.y));
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(topLeft.x - bottomLeft.x));
-	chunk->colors.push_back(abs(topLeft.y - bottomLeft.y));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(topLeft.x - bottomLeft.x));
+	mesh_data->colors.push_back(abs(topLeft.y - bottomLeft.y));
+	mesh_data->colors.push_back(((int)block) - 2);
 
-	chunk->colors.push_back(abs(topRight.x - bottomLeft.x));
-	chunk->colors.push_back(abs(topRight.y - bottomLeft.y));
-	chunk->colors.push_back(((int)block) - 2);
+	mesh_data->colors.push_back(abs(topRight.x - bottomLeft.x));
+	mesh_data->colors.push_back(abs(topRight.y - bottomLeft.y));
+	mesh_data->colors.push_back(((int)block) - 2);
     }
 
     if (backFace)
     {   
-        chunk->indices.push_back(chunk->vIndex + 2);
-        chunk->indices.push_back(chunk->vIndex);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex + 3);
-        chunk->indices.push_back(chunk->vIndex + 2);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 3);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
     }
     else
     {
-        chunk->indices.push_back(chunk->vIndex + 2);
-        chunk->indices.push_back(chunk->vIndex + 3);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex + 1);
-        chunk->indices.push_back(chunk->vIndex);
-        chunk->indices.push_back(chunk->vIndex + 2);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 3);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices);
+        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
     }
-    chunk->vIndex += 4;
+    mesh_data->chunk->numVertices += 4;
 }
 };

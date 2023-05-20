@@ -56,12 +56,8 @@ namespace Chunk
 	std::unique_ptr<Block[]> getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
     public:
-        GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, vIndex{0};
+        GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, numVertices{0};
 	std::atomic<float> unload_timer{0};
-        
-	std::vector<GLfloat> vertices;
-	std::vector<GLfloat> colors;
-	std::vector<GLuint> indices;
 
     private:
         glm::vec3 position{};

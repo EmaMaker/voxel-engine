@@ -2,10 +2,12 @@
 
 #include <atomic>
 #include <math.h>
+#include <vector>
 #include <thread>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
 #include <oneapi/tbb/concurrent_hash_map.h>
 
 #include "chunk.hpp"
@@ -23,6 +25,8 @@ namespace chunkmanager
     std::array<std::array<int, 3>, chunks_volume> chunks_indices;
 
     std::atomic_bool should_run;
+
+    int chunks_volume_real;
     std::thread init(){
 	int index{0};
 	int rr{RENDER_DISTANCE * RENDER_DISTANCE};
@@ -62,26 +66,33 @@ namespace chunkmanager
             }
             else  b = false;
 	}
+	chunks_volume_real = index;
+
+	// Also init mesh data queue
+	for(int i = 0; i < 10; i++)
+	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
 
 	should_run = true;
 	std::thread update_thread (update);
 	return update_thread;
     }
 
-    std::vector<uint32_t> chunks_todelete;
+    oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
+    int nUnloaded{0};
     void update(){
 	while(should_run) {
-	    //cameraPos = theCamera.getPos();
 	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
 	    // Update other chunks
-	    for(int i = 0; i < chunks_volume; i++) {
+	    for(int i = 0; i < chunks_volume_real; i++) {
 		const uint16_t x = chunks_indices[i][0] + chunkX;
 		const uint16_t y = chunks_indices[i][1] + chunkY;
 		const uint16_t z = chunks_indices[i][2] + chunkZ;
 		const uint32_t index = calculateIndex(x, y, z);
+
+		if(x > 1023 || y > 1023 || z > 1023) continue;
 
 		ChunkTable::accessor a;
 		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
@@ -101,6 +112,7 @@ namespace chunkmanager
 	 return i | (j << 10) | (k << 20); 
     }
 
+    oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
     std::array<std::array<int, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
     void stop() { should_run=false; }

@@ -23,10 +23,6 @@ namespace Chunk
 
     Chunk ::~Chunk()
     {
-	vertices.clear();
-	indices.clear();
-	colors.clear();
-	this->deleteBuffers();
     }
 
     void Chunk::createBuffers(){
