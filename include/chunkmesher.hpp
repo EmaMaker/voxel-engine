@@ -1,22 +1,29 @@
 #ifndef CHUNKMESH_H
 #define CHUNKMESH_H
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
 #include <string>
 #include <vector>
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <oneapi/tbb/concurrent_queue.h>
 
 #include "chunk.hpp"
 #include "globals.hpp"
 #include "shader.hpp"
 
 namespace chunkmesher{
-    void mesh(Chunk::Chunk* chunk);
-    void sendtogpu(Chunk::Chunk* chunk);
-    void draw(Chunk::Chunk* chunk, glm::mat4 model);
+    struct MeshData{
+	Chunk::Chunk* chunk; 
+	std::vector<GLfloat> vertices;
+	std::vector<GLfloat> colors;
+	std::vector<GLuint> indices;
+    };
+    oneapi::tbb::concurrent_queue<MeshData*>& getMeshDataQueue();
 
-    void quad(Chunk::Chunk* chunk, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
+    void mesh(Chunk::Chunk* chunk);
+    void sendtogpu(MeshData* mesh_data);
+    void quad(MeshData* mesh_data, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
 	    glm::vec3 bottomRight, glm::vec3 normal, Block block, int dim, bool backFace);
 }
 

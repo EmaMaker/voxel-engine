@@ -63,9 +63,7 @@ int main()
 
     SpaceFilling::initLUT();
     renderer::init();
-    chunkmanager::init();
-    std::thread genThread = chunkmanager::initGenThread();
-    std::thread meshThread = chunkmanager::initMeshThread();
+    std::thread chunkmanager_thread = chunkmanager::init();
 
     while (!glfwWindowShouldClose(window))
     {
@@ -94,9 +92,6 @@ int main()
 	// Reset blockping timeout if 200ms have passed
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
-        // ChunkManager
-        chunkmanager::update(deltaTime);
-
 	// Render pass
 	renderer::render();
 
@@ -106,10 +101,8 @@ int main()
     }
 
     // Stop threads and wait for them to finish
-    chunkmanager::stopGenThread();
-    chunkmanager::stopMeshThread();
-    genThread.join();
-    meshThread.join();
+    chunkmanager::stop();
+    chunkmanager_thread.join();
 
     // Cleanup allocated memory
     chunkmanager::destroy();
@@ -136,13 +129,13 @@ void processInput(GLFWwindow *window)
         glfwSetWindowShouldClose(window, true);
 
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && !blockpick){
-	chunkmanager::blockpick(false);
+	//chunkmanager::blockpick(false);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
 
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !blockpick){
-	chunkmanager::blockpick(true);
+	//chunkmanager::blockpick(true);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }

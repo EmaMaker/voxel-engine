@@ -1,105 +1,40 @@
+#include "chunkmanager.hpp"
+
+#include <atomic>
+#include <math.h>
+#include <vector>
+#include <thread>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+
+#include <oneapi/tbb/concurrent_hash_map.h>
 
 #include "chunk.hpp"
 #include "chunkgenerator.hpp"
-#include "chunkmanager.hpp"
 #include "chunkmesher.hpp"
 #include "globals.hpp"
-
-#include <atomic>
-#include <iostream>
-#include <math.h>
-#include <mutex>
-#include <set>
-#include <string>
-#include <unordered_map>
-#include <thread>
+#include "renderer.hpp"
 
 namespace chunkmanager
 {
-    std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
+    typedef oneapi::tbb::concurrent_hash_map<uint32_t, Chunk::Chunk*> ChunkTable;
+    ChunkTable chunks;
+
+    //std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
     std::array<std::array<int, 3>, chunks_volume> chunks_indices;
 
-    // thread management
-    std::mutex mutex_queue_generate;
-    std::mutex mutex_queue_mesh;
-    std::set<Chunk::Chunk *> to_generate;
-    std::set<Chunk::Chunk *> to_mesh;
-    std::atomic_bool generate_should_run;
-    std::atomic_bool mesh_should_run;
+    std::atomic_bool should_run;
 
-    // update variables
-    uint8_t f = 0;
-    int rr{RENDER_DISTANCE * RENDER_DISTANCE};
-    glm::vec3 cameraPos;
-    int chunkX, chunkY, chunkZ;
-
-    // disposal
-    std::unordered_map<uint32_t, float> to_delete;
-    std::set<uint32_t> to_delete_delete;
-
-    void mesh()
-    {
-	while (mesh_should_run)
-            if (mutex_queue_mesh.try_lock())
-            {
-                for (const auto &c : to_mesh)
-                {
-                    if (c->mutex_state.try_lock())
-                    {
-                        chunkmesher::mesh(c);
-                        c->setState(Chunk::CHUNK_STATE_MESHED, true);
-                        c->mutex_state.unlock();
-                    }
-                }
-                to_mesh.clear();
-                mutex_queue_mesh.unlock();
-            }
-    }
-
-    void generate()
-    {
-        while (generate_should_run)
-            if (mutex_queue_generate.try_lock())
-            {
-                for (const auto &c : to_generate)
-                {
-                    if (c->mutex_state.try_lock())
-                    {
-                        generateChunk(c);
-                        c->setState(Chunk::CHUNK_STATE_GENERATED, true);
-                        c->mutex_state.unlock();
-                    }
-                }
-                to_generate.clear();
-                mutex_queue_generate.unlock();
-            }
-    }
-
-    std::thread initMeshThread()
-    {
-	mesh_should_run = true;
-        std::thread mesh_thread(mesh);
-        return mesh_thread;
-    }
-
-    std::thread initGenThread()
-    {
-	generate_should_run = true;
-        std::thread gen_thread(generate);
-        return gen_thread;
-    }
-
-    void init(){
+    int chunks_volume_real;
+    std::thread init(){
 	int index{0};
+	int rr{RENDER_DISTANCE * RENDER_DISTANCE};
 
         int xp{0}, x{0};
         bool b = true;
 
-        // Iterate over all chunks, in concentric spheres starting fron the player and going
-	// outwards. Alternate left and right
+        // Iterate over all chunks, in concentric spheres starting fron the player and going outwards. Alternate left and right
         // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
         while (xp <= RENDER_DISTANCE)
         {
@@ -131,168 +66,57 @@ namespace chunkmanager
             }
             else  b = false;
 	}
+	chunks_volume_real = index;
+
+	// Also init mesh data queue
+	for(int i = 0; i < 10; i++)
+	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
+
+	should_run = true;
+	std::thread update_thread (update);
+	return update_thread;
     }
 
-    void update(float deltaTime)
-    {
-	// Try to lock resources
-        f = 0;
-        f |= mutex_queue_generate.try_lock();
-        f |= mutex_queue_mesh.try_lock() << 1;
+    oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
+    int nUnloaded{0};
+    void update(){
+	while(should_run) {
+	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
+	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
+	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
-        cameraPos = theCamera.getPos();
-        chunkX=static_cast<int>(cameraPos.x) / CHUNK_SIZE;
-	chunkY=static_cast<int>(cameraPos.y) / CHUNK_SIZE;
-	chunkZ=static_cast<int>(cameraPos.z) / CHUNK_SIZE;
+	    // Update other chunks
+	    for(int i = 0; i < chunks_volume_real; i++) {
+		const uint16_t x = chunks_indices[i][0] + chunkX;
+		const uint16_t y = chunks_indices[i][1] + chunkY;
+		const uint16_t z = chunks_indices[i][2] + chunkZ;
+		const uint32_t index = calculateIndex(x, y, z);
 
-	// Use time in float to be consistent with glfw
-	float currentTime = glfwGetTime();
+		if(x > 1023 || y > 1023 || z > 1023) continue;
 
-	// Check for far chunks that need to be cleaned up from memory
-	int nUnloaded{0};
-	for(const auto& n : chunks){
-		Chunk::Chunk* c = n.second;
-		int x{(int)(c->getPosition().x)};
-		int y{(int)(c->getPosition().y)};
-		int z{(int)(c->getPosition().z)};
-		if( (chunkX-x)*(chunkX-x) + (chunkY-y)*(chunkY-y) + (chunkZ-z)*(chunkZ-z) >=
-			(int)(RENDER_DISTANCE*1.5)*(int)(RENDER_DISTANCE*1.5))
-		    if(to_delete.find(n.first) == to_delete.end())
-			to_delete.insert(std::make_pair(n.first, currentTime));
-	}
-	for(const auto& n :to_delete){
-	    if(  currentTime>=n.second + UNLOAD_TIMEOUT) {
-		    delete chunks.at(n.first);
-		    chunks.erase(n.first);
-		    nUnloaded++;
+		ChunkTable::accessor a;
+		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
 
-		    // Delete afterwards to avoid exception due to invalid iterators
-		    to_delete_delete.insert(n.first);
+		if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) generateChunk(a->second);
+		if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))) chunkmesher::mesh(a->second);
+
+		renderer::getChunksToRender().insert(a->second);
+
+		a.release();
 	    }
-	}
-	for(uint32_t i : to_delete_delete) to_delete.erase(i);
-	to_delete_delete.clear();
-	if(nUnloaded) std::cout << "Unloaded " << nUnloaded << " chunks\n";
 
-	for(int i = 0; i < chunks_volume; i++) 
-	    updateChunk(calculateIndex(chunks_indices[i][0] + chunkX,
-					chunks_indices[i][1] + chunkY,
-					chunks_indices[i][2] + chunkZ),
-			chunks_indices[i][0] + chunkX,
-			chunks_indices[i][1] + chunkY,
-			chunks_indices[i][2] + chunkZ);
+	    Chunk::Chunk* n;
+	    nUnloaded = 0;
+	    while(chunks_todelete.try_pop(n)){
+		int x = static_cast<uint16_t>(n->getPosition().x);
+		int y = static_cast<uint16_t>(n->getPosition().y);
+		int z = static_cast<uint16_t>(n->getPosition().z);
+		if(x > 1023 || y > 1023 || z > 1023) continue;
+		const uint32_t index = calculateIndex(x, y, z);
 
-	// Unlock mutexes if previously locked. Unlocking a mutex not locked by the current thread
-	// or already locked is undefined behaviour, so checking has to be done
-        if ((f & 1))
-            mutex_queue_generate.unlock();
-        if ((f & 2))
-            mutex_queue_mesh.unlock();
-    }
-
-    // Generation and meshing happen in two separate threads from the main one
-    // Chunk states are used to decide which actions need to be done on the chunk and sets+mutexes
-    // to pass the chunks to be operated on between the threads.
-    // Uploading data to GPU still needs to be done in the main thread, or another OpenGL context
-    // needs to be opened, which further complicates stuff.
-    void updateChunk(uint32_t index, uint16_t i, uint16_t j, uint16_t k)
-    {
-        if (chunks.find(index) == chunks.end())
-        {
-            Chunk::Chunk *c = new Chunk::Chunk(glm::vec3(i, j, k));
-            chunks.insert(std::make_pair(index, c));
-        }
-        else
-        {
-            Chunk::Chunk *c = chunks.at(index);
-
-            if (!(c->mutex_state.try_lock()))
-                return;
-
-            if (!c->getState(Chunk::CHUNK_STATE_GENERATED))
-            {
-                if (f & 1)
-                    to_generate.insert(c);
-            }
-            else
-            {
-                if (!c->getState(Chunk::CHUNK_STATE_MESHED))
-                {
-                    if (f & 2)
-                        to_mesh.insert(c);
-                }
-                else
-                {
-                    if (!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) chunkmesher::sendtogpu(c);
-                }
-            }
-            c->mutex_state.unlock();
-        }
-    }
-
-    void blockpick(bool place){
-	// cast a ray from the camera in the direction pointed by the camera itself
-	glm::vec3 pos = cameraPos;
-	for(float t = 0.0; t <= 10.0; t += 0.5){
-	    // traverse the ray a block at the time
-	    pos = theCamera.getPos() + t * theCamera.getFront();
-	    
-	    // get which chunk and block the ray is at
-	    int px = ((int)(pos.x))/CHUNK_SIZE;
-	    int py = ((int)(pos.y))/CHUNK_SIZE;
-	    int pz = ((int)(pos.z))/CHUNK_SIZE;
-	    int bx = pos.x - px*CHUNK_SIZE;
-	    int by = pos.y - py*CHUNK_SIZE;
-	    int bz = pos.z - pz*CHUNK_SIZE;
-
-	    // exit early if the position is invalid or the chunk does not exist
-	    if(px < 0 || py < 0 || pz < 0) return;
-	    if(chunks.find(calculateIndex(px, py, pz)) == chunks.end()) return;
-
-	    Chunk::Chunk* c = chunks.at(calculateIndex(px, py, pz));
-	    Block b = c->getBlock(bx, by, bz);
-
-	    // if the block is non empty
-	    if(b != Block::AIR){
-
-		// if placing a new block
-		if(place){
-		    // Go half a block backwards on the ray, to check the block where the ray was
-		    // coming from
-		    // Doing this and not using normal adds the unexpected (and unwanted) ability to
-		    // place blocks diagonally, without faces colliding with the block that has
-		    // been clicked
-		    pos -= theCamera.getFront()*0.5f;
-		    
-		    int px1 = ((int)(pos.x))/CHUNK_SIZE;
-		    int py1 = ((int)(pos.y))/CHUNK_SIZE;
-		    int pz1 = ((int)(pos.z))/CHUNK_SIZE;
-		    int bx1 = pos.x - px1*CHUNK_SIZE;
-		    int by1 = pos.y - py1*CHUNK_SIZE;
-		    int bz1 = pos.z - pz1*CHUNK_SIZE;
-
-		    // exit early if the position is invalid or the chunk does not exist
-		    if(px1 < 0 || py1 < 0 || pz1 < 0) return;
-		    if(chunks.find(calculateIndex(px1, py1, pz1)) == chunks.end()) return;
-
-		    Chunk::Chunk* c1 = chunks.at(calculateIndex(px1, py1, pz1));
-		    // place the new block (only stone for now)
-		    c1->setBlock( Block::STONE, bx1, by1, bz1);
-
-		    // update the mesh of the chunk
-		    chunkmesher::mesh(c1);
-		    // mark the mesh of the chunk the be updated on the gpu
-		    c1->setState(Chunk::CHUNK_STATE_MESH_LOADED, false);
-		}else{
-		    // replace the current block with air to remove it
-		    c->setBlock( Block::AIR, bx, by, bz);
-
-		    // update the mesh of the chunk
-		    chunkmesher::mesh(c);
-		    // mark the mesh of the chunk the be updated on the gpu
-		    c->setState(Chunk::CHUNK_STATE_MESH_LOADED, false);
-		}
-		break;
+		delete n;
+		chunks.erase(index);
+		nUnloaded++;
 	    }
 	}
     }
@@ -302,21 +126,14 @@ namespace chunkmanager
 	 return i | (j << 10) | (k << 20); 
     }
 
-    std::unordered_map<std::uint32_t, Chunk::Chunk*>& getChunks(){ return chunks; }
+    oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
     std::array<std::array<int, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
-    void destroy()
-    {
-        for (auto &n : chunks)
-            delete n.second;
-    }
-
-    void stopGenThread(){
-	generate_should_run = false;
-    }
-
-    void stopMeshThread(){
-	mesh_should_run = false;
+    void stop() { should_run=false; }
+    void destroy(){
+	/*for(const auto& n : chunks){
+	    delete n.second;
+	}*/
     }
 
 };

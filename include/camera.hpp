@@ -6,7 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <iostream>
+#include <atomic>
 
 class Camera
 {
@@ -17,7 +17,7 @@ public:
         view = glm::mat4(1.0f);
 
 	// This matrix needs to be also updated in viewPortCallback whenever it is changed
-        projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 0.1f, 200.0f);
+        projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 0.1f, 1200.0f);
     }
 
     void update(GLFWwindow *window, float deltaTime)
@@ -38,6 +38,9 @@ public:
         if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
             this->cameraPos -= cameraSpeed * cameraUp;
 
+	posX = cameraPos.x;
+	posY = cameraPos.y;
+	posZ = cameraPos.z;
 
         direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
         direction.y = sin(glm::radians(pitch));
@@ -49,7 +52,7 @@ public:
 
     void viewPortCallBack(GLFWwindow *window, int width, int height)
     {
-        projection = glm::perspective(glm::radians(80.0f), (float)width / (float)height, 0.1f, 350.0f);
+        projection = glm::perspective(glm::radians(80.0f), (float)width / (float)height, 0.1f, 1200.0f);
     }
 
     void mouseCallback(GLFWwindow *window, double xpos, double ypos)
@@ -78,6 +81,10 @@ public:
     glm::mat4 getView() { return view; }
     glm::mat4 getProjection() { return projection; }
 
+    float getAtomicPosX() { return posX; }
+    float getAtomicPosY() { return posY; }
+    float getAtomicPosZ() { return posZ; }
+
     // Plane extraction as per Gribb&Hartmann
     // 6 planes, each with 4 components (a,b,c,d)
     void getFrustumPlanes(glm::vec4 planes[6], bool normalize)
@@ -105,7 +112,7 @@ public:
 
 
 private:
-    glm::vec3 cameraPos = glm::vec3(0.0, 80.0f, 0.0f);
+    glm::vec3 cameraPos = glm::vec3(256.0, 80.0f, 256.0f);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.0f);
@@ -114,6 +121,8 @@ private:
 
     float lastX = 400, lastY = 300;
     float yaw, pitch;
+
+    std::atomic<float> posX, posY, posZ;
 };
 
 #endif

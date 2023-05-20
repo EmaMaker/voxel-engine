@@ -19,7 +19,13 @@ namespace Chunk
     {
         this->position = pos;
         this->setState(CHUNK_STATE_EMPTY, true);
+    }
 
+    Chunk ::~Chunk()
+    {
+    }
+
+    void Chunk::createBuffers(){
 	glGenVertexArrays(1, &(this->VAO));
 	glGenBuffers(1, &(this->colorBuffer));
 	glGenBuffers(1, &(this->VBO));
@@ -27,18 +33,12 @@ namespace Chunk
 
     }
 
-    Chunk ::~Chunk()
-    {
+    void Chunk::deleteBuffers(){
         glDeleteBuffers(1, &(this->colorBuffer));
         glDeleteBuffers(1, &(this->VBO));
         glDeleteBuffers(1, &(this->EBO));
         glDeleteVertexArrays(1, &(this->VAO));
 
-	vertices.clear();
-	indices.clear();
-	colors.clear();
-
-	mutex_state.unlock();
     }
 
     Block Chunk::getBlock(int x, int y, int z)
@@ -60,8 +60,8 @@ namespace Chunk
     void Chunk::setState(uint8_t nstate, bool value)
     {
         if (value)
-            this->state.set((size_t)nstate);
+	    this->state.fetch_or(nstate);
         else
-            this->state.reset((size_t)nstate);
+	    this->state.fetch_and(~nstate);
     }
 }
