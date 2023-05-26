@@ -15,6 +15,8 @@
 namespace chunkmesher{
     struct MeshData{
 	Chunk::Chunk* chunk; 
+	GLuint numVertices{0};
+
 	std::vector<GLfloat> vertices;
 	std::vector<GLfloat> colors;
 	std::vector<GLuint> indices;
