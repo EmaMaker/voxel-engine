@@ -136,4 +136,70 @@ namespace chunkmanager
 	}*/
     }
 
+    void blockpick(bool place){
+	// cast a ray from the camera in the direction pointed by the camera itself
+	glm::vec3 pos = glm::vec3(theCamera.getAtomicPosX(), theCamera.getAtomicPosY(),
+		theCamera.getAtomicPosZ());
+	for(float t = 0.0; t <= 10.0; t += 0.5){
+	    // traverse the ray a block at the time
+	    pos = theCamera.getPos() + t * theCamera.getFront();
+
+	    // get which chunk and block the ray is at
+	    int px = ((int)(pos.x))/CHUNK_SIZE;
+	    int py = ((int)(pos.y))/CHUNK_SIZE;
+	    int pz = ((int)(pos.z))/CHUNK_SIZE;
+	    int bx = pos.x - px*CHUNK_SIZE;
+	    int by = pos.y - py*CHUNK_SIZE;
+	    int bz = pos.z - pz*CHUNK_SIZE;
+
+	    // exit early if the position is invalid or the chunk does not exist
+	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) return;
+
+	    ChunkTable::accessor a;
+	    if(!chunks.find(a, calculateIndex(px, py, pz))) return;
+	    Chunk::Chunk* c = a->second;
+	    if(!c->getState(Chunk::CHUNK_STATE_GENERATED) || c->getState(Chunk::CHUNK_STATE_EMPTY)) continue;
+
+	    Block b = c->getBlock(bx, by, bz);
+
+	    a.release();
+	    // if the block is non empty
+	    if(b != Block::AIR){
+
+		// if placing a new block
+		if(place){
+		    // Go half a block backwards on the ray, to check the block where the ray was
+		    // coming from
+		    // Doing this and not using normal adds the unexpected (and unwanted) ability to
+		    // place blocks diagonally, without faces colliding with the block that has
+		    // been clicked
+		    pos -= theCamera.getFront()*0.5f;
+
+		    int px1 = ((int)(pos.x))/CHUNK_SIZE;
+		    int py1 = ((int)(pos.y))/CHUNK_SIZE;
+		    int pz1 = ((int)(pos.z))/CHUNK_SIZE;
+		    int bx1 = pos.x - px1*CHUNK_SIZE;
+		    int by1 = pos.y - py1*CHUNK_SIZE;
+		    int bz1 = pos.z - pz1*CHUNK_SIZE;
+
+		    // exit early if the position is invalid or the chunk does not exist
+		    if(px1 < 0 || py1 < 0 || pz1 < 0 || px1 >= 1024 || py1 >= 1024 || pz1 >= 1024) return;
+		    ChunkTable::accessor a1;
+		    if(!chunks.find(a1, calculateIndex(px1, py1, pz1))) return;
+		    Chunk::Chunk* c1 = a1->second;
+		    // place the new block (only stone for now)
+		    c1->setBlock( Block::STONE, bx1, by1, bz1);
+
+		    // mark the mesh of the chunk the be updated
+		    c1->setState(Chunk::CHUNK_STATE_MESHED, false);
+		}else{
+		    // replace the current block with air to remove it
+		    c->setBlock( Block::AIR, bx, by, bz);
+
+		    c->setState(Chunk::CHUNK_STATE_MESHED, false);
+		}
+		break;
+	    }
+	}
+    }
 };
