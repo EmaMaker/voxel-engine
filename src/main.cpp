@@ -129,13 +129,13 @@ void processInput(GLFWwindow *window)
         glfwSetWindowShouldClose(window, true);
 
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && !blockpick){
-	//chunkmanager::blockpick(false);
+	chunkmanager::blockpick(false);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
 
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !blockpick){
-	//chunkmanager::blockpick(true);
+	chunkmanager::blockpick(true);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }

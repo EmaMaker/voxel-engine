@@ -36,7 +36,7 @@ void mesh(Chunk::Chunk* chunk)
      */
 
     // Cleanup previous data
-    chunk->numVertices = 0;
+    mesh_data->numVertices = 0;
     mesh_data->chunk = chunk;
     mesh_data->vertices.clear();
     mesh_data->indices.clear();
@@ -202,7 +202,7 @@ void mesh(Chunk::Chunk* chunk)
 
 void sendtogpu(MeshData* mesh_data)
 {
-    if (mesh_data->chunk->numVertices > 0)
+    if (mesh_data->numVertices > 0)
     {
 	if(mesh_data->chunk->VAO == 0) mesh_data->chunk->createBuffers();
 
@@ -234,7 +234,7 @@ void sendtogpu(MeshData* mesh_data)
 	glBindVertexArray(0);
 
 	// save the number of indices of the mesh, it is needed later for drawing
-	mesh_data->chunk->numVertices = (GLuint)(mesh_data->indices.size());
+	mesh_data->chunk->numTriangles = (GLuint)(mesh_data->indices.size());
 
 	// once data has been sent to the GPU, it can be cleared from system RAM
 	mesh_data->vertices.clear();
@@ -330,22 +330,22 @@ void quad(MeshData* mesh_data, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
 
     if (backFace)
     {   
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 3);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
+        mesh_data->indices.push_back(mesh_data->numVertices + 2);
+        mesh_data->indices.push_back(mesh_data->numVertices);
+        mesh_data->indices.push_back(mesh_data->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->numVertices + 3);
+        mesh_data->indices.push_back(mesh_data->numVertices + 2);
     }
     else
     {
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 3);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices);
-        mesh_data->indices.push_back(mesh_data->chunk->numVertices + 2);
+        mesh_data->indices.push_back(mesh_data->numVertices + 2);
+        mesh_data->indices.push_back(mesh_data->numVertices + 3);
+        mesh_data->indices.push_back(mesh_data->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->numVertices + 1);
+        mesh_data->indices.push_back(mesh_data->numVertices);
+        mesh_data->indices.push_back(mesh_data->numVertices + 2);
     }
-    mesh_data->chunk->numVertices += 4;
+    mesh_data->numVertices += 4;
 }
 };
