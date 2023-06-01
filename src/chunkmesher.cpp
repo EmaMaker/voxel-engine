@@ -1,9 +1,11 @@
+#include "chunkmesher.hpp"
+
 #include <array>
 #include <memory>
 
 #include "block.hpp"
 #include "chunk.hpp"
-#include "chunkmesher.hpp"
+#include "chunkmanager.hpp"
 #include "globals.hpp"
 #include "renderer.hpp"
 #include "spacefilling.hpp"
@@ -93,25 +95,38 @@ void mesh(Chunk::Chunk* chunk)
                 {
                     for (x[u] = 0; x[u] < CHUNK_SIZE; x[u]++)
                     {
-                        Block b1 = (x[dim] >= 0) ? blocks[HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]] : Block::NULLBLK;
-                        Block b2 = (x[dim] < CHUNK_SIZE - 1)
-                                       ? blocks[HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1] + q[1]][x[2] + q[2]]]
-                                       : Block::NULLBLK;
+			Block b1, b2;
+			if(x[dim] >= 0) b1 = blocks[HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]];
+			else{
+			    int cx = chunk->getPosition().x*CHUNK_SIZE;
+			    int cy = chunk->getPosition().y*CHUNK_SIZE;
+			    int cz = chunk->getPosition().z*CHUNK_SIZE;
 
-                        // This is the original line taken from rob's code, readapted (replace voxelFace
-                        // with b1 and b2).
-                        // mask[n++] = ((voxelFace != Block::NULLBLK && voxelFace1 != Block::NULLBLK &&
-                        // voxelFace.equals(voxelFace1))) ? Block::NULLBLK : backFace ? voxelFace1 : voxelFace;
+			    int bx = cx+x[0];
+			    int by = cy+x[1];
+			    int bz = cz+x[2];
 
-                        // Additionally checking whether b1 and b2 are AIR or Block::NULLBLK allows face culling,
-                        // thus not rendering faces that cannot be seen
-                        // Removing the control for Block::NULLBLK disables chunk borders, which is
-			// not always wanted and needs further checking
-                        // This can be surely refactored in something that isn't such a big one-liner
-                        mask[n++] = b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2 ? Block::NULLBLK
-                                    : backFace                                               ? b1 == Block::AIR || b1 == Block::NULLBLK ? b2 : Block::NULLBLK
-                                    : b2 == Block::AIR || b2 == Block::NULLBLK               ? b1
-                                                                                             : Block::NULLBLK;
+			    b1 = chunkmanager::getBlockAtPos(bx, by, bz);
+			}
+
+			if(x[dim] < CHUNK_SIZE - 1) b2 = blocks[HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1]
+			    + q[1]][x[2] + q[2]]];
+			else{
+			    int cx = chunk->getPosition().x*CHUNK_SIZE;
+			    int cy = chunk->getPosition().y*CHUNK_SIZE;
+			    int cz = chunk->getPosition().z*CHUNK_SIZE;
+
+			    int bx = cx+x[0] + q[0];
+			    int by = cy+x[1] + q[1];
+			    int bz = cz+x[2] + q[2];
+
+			    b2 = chunkmanager::getBlockAtPos(bx, by, bz);
+			}
+
+			// Compute the mask
+			mask[n++] = b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2 ? Block::NULLBLK
+                                    : backFace ? b1 == Block::AIR ? b2 : Block::NULLBLK
+                                    : b2 == Block::AIR ? b1 : Block::NULLBLK;
                     }
                 }
 

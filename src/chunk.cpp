@@ -19,6 +19,7 @@ namespace Chunk
     {
         this->position = pos;
         this->setState(CHUNK_STATE_EMPTY, true);
+	this->setBlocks(0, CHUNK_MAX_INDEX, Block::AIR);
     }
 
     Chunk ::~Chunk()
@@ -43,6 +44,8 @@ namespace Chunk
 
     Block Chunk::getBlock(int x, int y, int z)
     {
+	if(x < 0 || y < 0 || z < 0 || x > CHUNK_SIZE -1 || y > CHUNK_SIZE -1 || z > CHUNK_SIZE-1 ||
+		!getState(CHUNK_STATE_GENERATED)) return Block::AIR;
         return blocks.at(HILBERT_XYZ_ENCODE[x][y][z]);
     }
 
