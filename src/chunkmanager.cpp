@@ -10,6 +10,7 @@
 
 #include <oneapi/tbb/concurrent_hash_map.h>
 
+#include "block.hpp"
 #include "chunk.hpp"
 #include "chunkgenerator.hpp"
 #include "chunkmesher.hpp"
@@ -200,6 +201,29 @@ namespace chunkmanager
 		}
 		break;
 	    }
+	}
+    }
+
+    Block getBlockAtPos(int x, int y, int z){
+	if(x < 0 || y < 0 || z < 0) return Block::NULLBLK;
+
+	int cx = static_cast<int>(x / CHUNK_SIZE);
+	int cy = static_cast<int>(y / CHUNK_SIZE);
+	int cz = static_cast<int>(z / CHUNK_SIZE);
+
+	if(cx < 0 || cy < 0 || cz < 0 || cx > 1023 || cy > 1023 || cz > 1023) return Block::NULLBLK;
+
+	//std::cout << "Block at " << x << ", " << y << ", " << z << " is in chunk " << cx << "," << cy << "," << cz << "\n";
+	ChunkTable::accessor a;
+	if(!chunks.find(a, calculateIndex(cx, cy, cz))) return Block::NULLBLK;
+	else {
+	    int bx = x % CHUNK_SIZE;
+	    int by = y % CHUNK_SIZE;
+	    int bz = z % CHUNK_SIZE;
+
+	    Block b =  a->second->getBlock(bx, by, bz);
+	    //std::cout << "Block is at " << bx << "," << by << "," << bz << "(" << (int)b << ")\n";
+	    return b;
 	}
     }
 };
