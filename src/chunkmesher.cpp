@@ -124,9 +124,13 @@ void mesh(Chunk::Chunk* chunk)
 			}
 
 			// Compute the mask
-			mask[n++] = b1 != Block::NULLBLK && b2 != Block::NULLBLK && b1 == b2 ? Block::NULLBLK
-                                    : backFace ? b1 == Block::AIR ? b2 : Block::NULLBLK
-                                    : b2 == Block::AIR ? b1 : Block::NULLBLK;
+			// Checking if b1==b2 is needed to generate a single quad
+			// The else case provides face culling for adjacent solid faces
+			// Checking for NULLBLK avoids creating empty faces if nearby chunk was not
+			// yet generated
+			mask[n++] = b1 == b2 ? Block::NULLBLK
+                                    : backFace ? b1 == Block::NULLBLK || b1 == Block::AIR ? b2 : Block::NULLBLK
+                                    : b2 == Block::NULLBLK || b2 == Block::AIR ? b1 : Block::NULLBLK;
                     }
                 }
 
