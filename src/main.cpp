@@ -21,6 +21,7 @@ int frames = 0;
 
 float lastBlockPick=0.0;
 bool blockpick = false;
+bool canChangeWireframe = true;
 
 int main()
 {
@@ -62,6 +63,7 @@ int main()
     std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
     SpaceFilling::initLUT();
+    wireframe = false;
     renderer::init();
     std::thread chunkmanager_thread = chunkmanager::init();
 
@@ -139,6 +141,12 @@ void processInput(GLFWwindow *window)
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
+
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && canChangeWireframe){
+	wireframe = !wireframe;
+	canChangeWireframe = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) canChangeWireframe = true;
 
     // Reset blockpicking if enough time has passed
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE) blockpick = false;

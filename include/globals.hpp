@@ -14,6 +14,7 @@
 
 extr Camera theCamera;
 constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
+extr bool wireframe;
 
 extr uint32_t MORTON_XYZ_ENCODE[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
 extr uint32_t MORTON_XYZ_DECODE[CHUNK_VOLUME][3];

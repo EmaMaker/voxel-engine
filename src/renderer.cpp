@@ -61,6 +61,9 @@ namespace renderer{
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
 
+	if(wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 	for(auto& c : chunks_torender){
 	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
 	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
@@ -95,7 +98,6 @@ namespace renderer{
 		{
 		    if(c->numTriangles > 0)
 		    {
-			// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // wireframe mode
 			theShader->setMat4("model", model);
 			theShader->setMat4("view", theCamera.getView());
 			theShader->setMat4("projection", theCamera.getProjection());
