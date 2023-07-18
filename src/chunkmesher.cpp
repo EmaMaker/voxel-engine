@@ -228,25 +228,24 @@ void sendtogpu(MeshData* mesh_data)
 	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
 	glBindVertexArray(mesh_data->chunk->VAO);
 
-	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->VBO);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh_data->chunk->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_data->indices.size() * sizeof(GLuint), &(mesh_data->indices[0]), GL_STATIC_DRAW);
 
 	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->VBO);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 	glEnableVertexAttribArray(0);
 
 	// normal attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3*
-		    sizeof(float)));
+	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->normalsBuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->normals.size() * sizeof(GLfloat), &(mesh_data->normals[0]), GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
 	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh_data->chunk->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_data->indices.size() * sizeof(GLuint), &(mesh_data->indices[0]), GL_STATIC_DRAW);
 
 	// texcoords attribute
 	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->colorBuffer);
 	glBufferData(GL_ARRAY_BUFFER, mesh_data->colors.size() * sizeof(GLfloat), &(mesh_data->colors[0]), GL_STATIC_DRAW);
-
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 
@@ -257,6 +256,7 @@ void sendtogpu(MeshData* mesh_data)
 
 	// once data has been sent to the GPU, it can be cleared from system RAM
 	mesh_data->vertices.clear();
+	mesh_data->normals.clear();
 	mesh_data->indices.clear();
 	mesh_data->colors.clear();
     }
@@ -271,30 +271,24 @@ void quad(MeshData* mesh_data, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec
     mesh_data->vertices.push_back(bottomLeft.x);
     mesh_data->vertices.push_back(bottomLeft.y);
     mesh_data->vertices.push_back(bottomLeft.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
 
     mesh_data->vertices.push_back(bottomRight.x);
     mesh_data->vertices.push_back(bottomRight.y);
     mesh_data->vertices.push_back(bottomRight.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
 
     mesh_data->vertices.push_back(topLeft.x);
     mesh_data->vertices.push_back(topLeft.y);
     mesh_data->vertices.push_back(topLeft.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
 
     mesh_data->vertices.push_back(topRight.x);
     mesh_data->vertices.push_back(topRight.y);
     mesh_data->vertices.push_back(topRight.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
+
+    for(int i = 0; i < 4; i++){
+	mesh_data->normals.push_back(normal.x);
+	mesh_data->normals.push_back(normal.y);
+	mesh_data->normals.push_back(normal.z);
+    }
 
     // texcoords
     if(dim == 0){

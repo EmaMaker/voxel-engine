@@ -18,6 +18,7 @@ namespace chunkmesher{
 	GLuint numVertices{0};
 
 	std::vector<GLfloat> vertices;
+	std::vector<GLfloat> normals;
 	std::vector<GLfloat> colors;
 	std::vector<GLuint> indices;
     };
