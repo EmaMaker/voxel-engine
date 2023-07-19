@@ -56,7 +56,7 @@ namespace Chunk
 	std::unique_ptr<Block[]> getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
     public:
-        GLuint VAO{0}, VBO{0}, EBO{0}, colorBuffer{0}, numTriangles{0};
+        GLuint VAO{0}, VBO{0}, extentsBuffer{0}, texinfoBuffer{0}, numVertices{0};
 	std::atomic<float> unload_timer{0};
 
     private:

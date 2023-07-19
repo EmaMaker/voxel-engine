@@ -23,7 +23,7 @@ namespace renderer{
 
     void init(){
 	// Create Shader
-	theShader = new Shader{"shaders/shader-texture.vs", "shaders/shader-texture.fs"};
+	theShader = new Shader{"shaders/shader-texture.gs", "shaders/shader-texture.vs", "shaders/shader-texture.fs"};
 
 	// Create 3d array texture
 	constexpr int layerCount = 3;
@@ -96,14 +96,14 @@ namespace renderer{
 
 		if (!out)
 		{
-		    if(c->numTriangles > 0)
+		    if(c->numVertices > 0)
 		    {
 			theShader->setMat4("model", model);
 			theShader->setMat4("view", theCamera.getView());
 			theShader->setMat4("projection", theCamera.getProjection());
 
 			glBindVertexArray(c->VAO);
-			glDrawElements(GL_TRIANGLES, c->numTriangles , GL_UNSIGNED_INT, 0);
+			glDrawArrays(GL_POINTS, 0, c->numVertices);
 			glBindVertexArray(0);
 		    }
 		}

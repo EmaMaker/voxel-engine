@@ -115,8 +115,8 @@ namespace chunkmanager
 		if(x > 1023 || y > 1023 || z > 1023) continue;
 		const uint32_t index = calculateIndex(x, y, z);
 
-		delete n;
 		chunks.erase(index);
+		//delete n;
 		nUnloaded++;
 	    }
 	}

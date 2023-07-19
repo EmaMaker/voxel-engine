@@ -41,8 +41,8 @@ void mesh(Chunk::Chunk* chunk)
     mesh_data->numVertices = 0;
     mesh_data->chunk = chunk;
     mesh_data->vertices.clear();
-    mesh_data->indices.clear();
-    mesh_data->colors.clear();
+    mesh_data->extents.clear();
+    mesh_data->texinfo.clear();
 
     // Abort if chunk is empty
     if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)){
@@ -179,13 +179,19 @@ void mesh(Chunk::Chunk* chunk)
                                 dv[2] = 0;
                                 dv[v] = h;
 
-                                quad(mesh_data, glm::vec3(x[0], x[1], x[2]),
-                                     glm::vec3(x[0] + du[0], x[1] + du[1], x[2] + du[2]),
-                                     glm::vec3(x[0] + du[0] + dv[0], x[1] + du[1] + dv[1],
-                                               x[2] + du[2] + dv[2]),
-                                     glm::vec3(x[0] + dv[0], x[1] + dv[1], x[2] + dv[2]),
-				     glm::vec3(backFace ? q[0] : -q[0], backFace ? q[1] : -q[1], backFace ? q[2] : -q[2] ),
-                                     mask[n], dim, backFace);
+				// bottom left
+				mesh_data->vertices.push_back(x[0]); //bottomLeft.x
+				mesh_data->vertices.push_back(x[1]); //bottomLeft.y
+				mesh_data->vertices.push_back(x[2]); //bottomLeft.z
+
+				// extents, use normals for now
+				mesh_data->extents.push_back(du[0] + dv[0]);
+				mesh_data->extents.push_back(du[1] + dv[1]);
+				mesh_data->extents.push_back(du[2] + dv[2]);
+
+				mesh_data->texinfo.push_back(backFace ? 0.0 : 1.0);
+				mesh_data->texinfo.push_back((int)(mask[n]) - 2);
+				mesh_data->numVertices++;
                             }
 
                             for (l = 0; l < h; ++l)
@@ -228,143 +234,36 @@ void sendtogpu(MeshData* mesh_data)
 	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
 	glBindVertexArray(mesh_data->chunk->VAO);
 
+	// position attribute
 	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->VBO);
 	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
-
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 	glEnableVertexAttribArray(0);
 
 	// normal attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)(3*
-		    sizeof(float)));
+	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->extentsBuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
 	glEnableVertexAttribArray(1);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh_data->chunk->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_data->indices.size() * sizeof(GLuint), &(mesh_data->indices[0]), GL_STATIC_DRAW);
-
 	// texcoords attribute
-	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->colorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->colors.size() * sizeof(GLfloat), &(mesh_data->colors[0]), GL_STATIC_DRAW);
-
+	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->texinfoBuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
 
 	glBindVertexArray(0);
 
 	// save the number of indices of the mesh, it is needed later for drawing
-	mesh_data->chunk->numTriangles = (GLuint)(mesh_data->indices.size());
+	mesh_data->chunk->numVertices = (GLuint)(mesh_data->numVertices);
 
 	// once data has been sent to the GPU, it can be cleared from system RAM
 	mesh_data->vertices.clear();
-	mesh_data->indices.clear();
-	mesh_data->colors.clear();
+	mesh_data->extents.clear();
+	mesh_data->texinfo.clear();
     }
     
     // mark the chunk mesh has loaded on GPU
     mesh_data->chunk->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
-}
-
-void quad(MeshData* mesh_data, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
-	glm::vec3 bottomRight, glm::vec3 normal, Block block, int dim, bool backFace)
-{
-    mesh_data->vertices.push_back(bottomLeft.x);
-    mesh_data->vertices.push_back(bottomLeft.y);
-    mesh_data->vertices.push_back(bottomLeft.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
-
-    mesh_data->vertices.push_back(bottomRight.x);
-    mesh_data->vertices.push_back(bottomRight.y);
-    mesh_data->vertices.push_back(bottomRight.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
-
-    mesh_data->vertices.push_back(topLeft.x);
-    mesh_data->vertices.push_back(topLeft.y);
-    mesh_data->vertices.push_back(topLeft.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
-
-    mesh_data->vertices.push_back(topRight.x);
-    mesh_data->vertices.push_back(topRight.y);
-    mesh_data->vertices.push_back(topRight.z);
-    mesh_data->vertices.push_back(normal.x);
-    mesh_data->vertices.push_back(normal.y);
-    mesh_data->vertices.push_back(normal.z);
-
-    // texcoords
-    if(dim == 0){
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(bottomRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(bottomRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topLeft.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topLeft.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-    }else if(dim == 1){
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(bottomRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(bottomRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topLeft.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topLeft.x - bottomLeft.x));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(((int)block) - 2);
-    }else{
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(bottomRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(abs(bottomRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topLeft.x - bottomLeft.x));
-	mesh_data->colors.push_back(abs(topLeft.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(abs(topRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-    }
-
-    if (backFace)
-    {   
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-        mesh_data->indices.push_back(mesh_data->numVertices);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices + 3);
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-    }
-    else
-    {
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-        mesh_data->indices.push_back(mesh_data->numVertices + 3);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices);
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-    }
-    mesh_data->numVertices += 4;
 }
 };
