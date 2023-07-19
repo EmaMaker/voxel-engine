@@ -236,21 +236,21 @@ void sendtogpu(MeshData* mesh_data)
 
 	// position attribute
 	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->VBO);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLubyte), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
+	glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, 3 * sizeof(GLubyte), (void *)0);
 	glEnableVertexAttribArray(0);
 
 	// normal attribute
 	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->extentsBuffer);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLubyte), &(mesh_data->extents[0]), GL_STATIC_DRAW);
+	glVertexAttribIPointer(1, 3, GL_UNSIGNED_BYTE, 3 * sizeof(GLubyte), (void *)0);
 	glEnableVertexAttribArray(1);
 
 	// texcoords attribute
 	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->texinfoBuffer);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLubyte), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+	glVertexAttribIPointer(2, 2, GL_UNSIGNED_BYTE, 2 * sizeof(GLubyte), (void *)0);
 
 	glBindVertexArray(0);
 

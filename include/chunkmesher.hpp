@@ -17,9 +17,9 @@ namespace chunkmesher{
 	Chunk::Chunk* chunk; 
 	GLuint numVertices{0};
 
-	std::vector<GLfloat> vertices;
-	std::vector<GLfloat> extents;
-	std::vector<GLfloat> texinfo;
+	std::vector<GLubyte> vertices;
+	std::vector<GLubyte> extents;
+	std::vector<GLubyte> texinfo;
     };
     oneapi::tbb::concurrent_queue<MeshData*>& getMeshDataQueue();
 
