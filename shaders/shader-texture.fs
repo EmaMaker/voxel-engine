@@ -2,29 +2,29 @@
 
 out vec4 FragColor;
 
-in vec3 vNormal;
-in vec3 vTexCoord;
+in vec3 TexCoord;
+in vec3 Normal;
 in vec3 FragPos;
 
 vec3 lightColor = vec3(1.0);
 vec3 lightDir = -normalize(vec3(0.0, 100.0, 0.0) - vec3(32.0));
 
-float ambientStrength = 0.4;
-float diffuseStrength = 0.45;
-float specularStrength = 0.05;
+float ambientStrength = 0.1;
+float diffuseStrength = 0.8;
+float specularStrength = 0.1;
 
 uniform vec3 viewPos;
 uniform float u_time;
 uniform sampler2DArray textureArray;
 
 void main(){
-    vec3 vColor = vec3(texture(textureArray, vTexCoord));
+    // Load the texture
+    // anti-gamma-correction of the texture. Without this it would be gamma corrected twice!
+    vec3 vColor = texture(textureArray, TexCoord).rgb;
     
-    // offset the normal a tiny bit, so that the color of faces opposing lightDir is not completely
-    // flat
-    vec3 normal = normalize(vNormal);
+    vec3 normal = normalize(Normal);
 
-    // Blinn-Phong lighting
+    /* Start of Blinn-Phong lighting */
     // Ambient
     vec3 ambient = lightColor*vColor;
 
