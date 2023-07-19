@@ -17,10 +17,12 @@ uniform vec3 viewPos;
 uniform float u_time;
 uniform sampler2DArray textureArray;
 
+float gamma = 2.2;
+
 void main(){
     // Load the texture
     // anti-gamma-correction of the texture. Without this it would be gamma corrected twice!
-    vec3 vColor = texture(textureArray, TexCoord).rgb;
+    vec3 vColor = pow(texture(textureArray, TexCoord).rgb, vec3(gamma));
     
     vec3 normal = normalize(Normal);
 
@@ -40,5 +42,5 @@ void main(){
 
     // Final color
     vec3 color = ambient * ambientStrength + diffuse * diffuseStrength + specular * specularStrength;
-    FragColor.rgb = color;
+    FragColor.rgb = pow(color, vec3(1.0/gamma));
 }
