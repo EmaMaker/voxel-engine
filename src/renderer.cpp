@@ -96,14 +96,14 @@ namespace renderer{
 
 		if (!out)
 		{
-		    if(c->numTriangles > 0)
+		    if(c->numVertices > 0)
 		    {
 			theShader->setMat4("model", model);
 			theShader->setMat4("view", theCamera.getView());
 			theShader->setMat4("projection", theCamera.getProjection());
 
 			glBindVertexArray(c->VAO);
-			glDrawArrays(GL_POINTS, 0, c->numTriangles);
+			glDrawArrays(GL_POINTS, 0, c->numVertices);
 			glBindVertexArray(0);
 		    }
 		}

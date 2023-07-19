@@ -28,20 +28,17 @@ namespace Chunk
 
     void Chunk::createBuffers(){
 	glGenVertexArrays(1, &(this->VAO));
-	glGenBuffers(1, &(this->colorBuffer));
-	glGenBuffers(1, &(this->normalsBuffer));
 	glGenBuffers(1, &(this->VBO));
-	glGenBuffers(1, &(this->EBO));
+	glGenBuffers(1, &(this->extentsBuffer));
+	glGenBuffers(1, &(this->texinfoBuffer));
 
     }
 
     void Chunk::deleteBuffers(){
-        glDeleteBuffers(1, &(this->colorBuffer));
-        glDeleteBuffers(1, &(this->normalsBuffer));
-        glDeleteBuffers(1, &(this->VBO));
-        glDeleteBuffers(1, &(this->EBO));
+	glDeleteBuffers(1, &(this->VBO));
+	glDeleteBuffers(1, &(this->extentsBuffer));
+	glDeleteBuffers(1, &(this->texinfoBuffer));
         glDeleteVertexArrays(1, &(this->VAO));
-
     }
 
     Block Chunk::getBlock(int x, int y, int z)

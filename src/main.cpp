@@ -58,7 +58,8 @@ int main()
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
+    //glEnable(GL_FRAMEBUFFER_SRGB); //gamma correction done in fragment shader
+    //glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
 
     std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
