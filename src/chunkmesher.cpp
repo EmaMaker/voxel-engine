@@ -41,6 +41,7 @@ void mesh(Chunk::Chunk* chunk)
     mesh_data->numVertices = 0;
     mesh_data->chunk = chunk;
     mesh_data->vertices.clear();
+    mesh_data->normals.clear();
     mesh_data->indices.clear();
     mesh_data->colors.clear();
 
@@ -247,12 +248,12 @@ void sendtogpu(MeshData* mesh_data)
 	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->colorBuffer);
 	glBufferData(GL_ARRAY_BUFFER, mesh_data->colors.size() * sizeof(GLfloat), &(mesh_data->colors[0]), GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
 
 	glBindVertexArray(0);
 
 	// save the number of indices of the mesh, it is needed later for drawing
-	mesh_data->chunk->numTriangles = (GLuint)(mesh_data->indices.size());
+	mesh_data->chunk->numTriangles = (GLuint)(mesh_data->numVertices);
 
 	// once data has been sent to the GPU, it can be cleared from system RAM
 	mesh_data->vertices.clear();
@@ -268,97 +269,18 @@ void sendtogpu(MeshData* mesh_data)
 void quad(MeshData* mesh_data, glm::vec3 bottomLeft, glm::vec3 topLeft, glm::vec3 topRight,
 	glm::vec3 bottomRight, glm::vec3 normal, Block block, int dim, bool backFace)
 {
+    // bottom left
     mesh_data->vertices.push_back(bottomLeft.x);
     mesh_data->vertices.push_back(bottomLeft.y);
     mesh_data->vertices.push_back(bottomLeft.z);
 
-    mesh_data->vertices.push_back(bottomRight.x);
-    mesh_data->vertices.push_back(bottomRight.y);
-    mesh_data->vertices.push_back(bottomRight.z);
+    // extents, use normals for now
+    mesh_data->normals.push_back(abs(topRight.x - bottomLeft.x));
+    mesh_data->normals.push_back(abs(topRight.y - bottomLeft.y));
+    mesh_data->normals.push_back(abs(topRight.z - bottomLeft.z));
 
-    mesh_data->vertices.push_back(topLeft.x);
-    mesh_data->vertices.push_back(topLeft.y);
-    mesh_data->vertices.push_back(topLeft.z);
-
-    mesh_data->vertices.push_back(topRight.x);
-    mesh_data->vertices.push_back(topRight.y);
-    mesh_data->vertices.push_back(topRight.z);
-
-    for(int i = 0; i < 4; i++){
-	mesh_data->normals.push_back(normal.x);
-	mesh_data->normals.push_back(normal.y);
-	mesh_data->normals.push_back(normal.z);
-    }
-
-    // texcoords
-    if(dim == 0){
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(bottomRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(bottomRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topLeft.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topLeft.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-    }else if(dim == 1){
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(bottomRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(bottomRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topLeft.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topLeft.x - bottomLeft.x));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topRight.z - bottomLeft.z));
-	mesh_data->colors.push_back(abs(topRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(((int)block) - 2);
-    }else{
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(0);
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(bottomRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(abs(bottomRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topLeft.x - bottomLeft.x));
-	mesh_data->colors.push_back(abs(topLeft.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-
-	mesh_data->colors.push_back(abs(topRight.x - bottomLeft.x));
-	mesh_data->colors.push_back(abs(topRight.y - bottomLeft.y));
-	mesh_data->colors.push_back(((int)block) - 2);
-    }
-
-    if (backFace)
-    {   
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-        mesh_data->indices.push_back(mesh_data->numVertices);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices + 3);
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-    }
-    else
-    {
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-        mesh_data->indices.push_back(mesh_data->numVertices + 3);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices + 1);
-        mesh_data->indices.push_back(mesh_data->numVertices);
-        mesh_data->indices.push_back(mesh_data->numVertices + 2);
-    }
-    mesh_data->numVertices += 4;
+    mesh_data->colors.push_back(backFace ? 0.0 : 1.0);
+    mesh_data->colors.push_back(((int)block) - 2);
+    mesh_data->numVertices++;
 }
 };
