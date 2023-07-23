@@ -8,10 +8,10 @@
 #include "OpenSimplexNoise.h"
 #include "utils.hpp"
 
-#define GRASS_OFFSET 40
-#define NOISE_GRASS_MULT 20
+#define GRASS_OFFSET 100
+#define NOISE_GRASS_MULT 50
 #define NOISE_DIRT_MULT 3
-#define NOISE_DIRT_MIN 2
+#define NOISE_DIRT_MIN 3
 #define NOISE_DIRT_X_MULT 0.001f
 #define NOISE_DIRT_Z_MULT 0.001f
 #define NOISE_GRASS_X_MULT 0.018f
@@ -36,6 +36,19 @@ OpenSimplexNoise::Noise noiseGen2(mt());
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> grassNoiseLUT;
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> dirtNoiseLUT;
 
+double evaluateNoise(OpenSimplexNoise::Noise noiseGen, double x, double y, double amplitude, double
+	frequency, double persistence, double lacunarity, int octaves){
+    double sum = 0;
+
+    for(int i = 0; i < octaves; i++){
+	sum += amplitude * noiseGen.eval(x*frequency, y*frequency);
+	amplitude *= persistence;
+	frequency *= lacunarity;
+    }
+
+    return sum;
+}
+
 void generateNoise(Chunk::Chunk *chunk)
 {
     for (int i = 0; i < grassNoiseLUT.size(); i++)
@@ -56,13 +69,14 @@ void generateNoise(Chunk::Chunk *chunk)
         int z = HILBERT_XYZ_DECODE[s][2] + CHUNK_SIZE * chunk->getPosition().z;
         int d2 = HILBERT_XYZ_DECODE[s][0] * CHUNK_SIZE + HILBERT_XYZ_DECODE[s][2];
 
-        if (grassNoiseLUT[d2] == -1){
-            grassNoiseLUT[d2] = GRASS_OFFSET + (int)((0.5 + noiseGen1.eval(x * NOISE_GRASS_X_MULT, z * NOISE_GRASS_Z_MULT) * NOISE_GRASS_MULT));
-	}
-        if (dirtNoiseLUT[d2] == -1){
-            dirtNoiseLUT[d2] = NOISE_DIRT_MIN + (int)((0.5 + noiseGen2.eval(x * NOISE_DIRT_X_MULT, z * NOISE_DIRT_Z_MULT) * NOISE_DIRT_MULT));
-	}
+        if (grassNoiseLUT[d2] == -1) 
+	    grassNoiseLUT[d2] = GRASS_OFFSET + evaluateNoise(noiseGen1, x, z, NOISE_GRASS_MULT,
+		    0.01, 0.35, 2.1, 5);
+        if (dirtNoiseLUT[d2] == -1) 
+	    dirtNoiseLUT[d2] = NOISE_DIRT_MIN + (int)((1 + noiseGen2.eval(x
+			* NOISE_DIRT_X_MULT, z * NOISE_DIRT_Z_MULT)) * NOISE_DIRT_MULT);
 
+	
         int grassNoise = grassNoiseLUT[d2];
         int dirtNoise = dirtNoiseLUT[d2];
         int stoneLevel = grassNoise - dirtNoise;
