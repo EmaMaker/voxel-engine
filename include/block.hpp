@@ -6,7 +6,9 @@ enum class Block{
     AIR,
     STONE,
     DIRT,
-    GRASS
+    GRASS,
+    WOOD,
+    LEAVES
 };
 
 #endif
