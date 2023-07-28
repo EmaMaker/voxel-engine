@@ -38,8 +38,25 @@ OpenSimplexNoise::Noise noiseGen1(mt());
 OpenSimplexNoise::Noise noiseGen2(mt());
 OpenSimplexNoise::Noise noiseGenWood(mt());
 
+// cover CHUNK_SIZE with WOOD_CELLS + 2 cells before and after the chunk
+constexpr int TREE_LUT_SIZE = std::ceil(static_cast<float>(CHUNK_SIZE)/static_cast<float>(WOOD_CELL_SIZE)) + 2;
+// Info on the tree cell to generate
+struct TreeCellInfo{
+    // Cell coordinates (in "tree cell space")
+    int wcx, wcz;
+    // trunk offset from 0,0 in the cell
+    int wcx_offset, wcz_offset;
+    // Global x,z position of the trunk
+    int wx, wz;
+    // Y of the center of the leaves sphere
+    int leaves_y_pos;
+};
+
+
+// Lookup tables for generation
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> grassNoiseLUT;
 std::array<int, CHUNK_SIZE * CHUNK_SIZE> dirtNoiseLUT;
+std::array<TreeCellInfo, TREE_LUT_SIZE*TREE_LUT_SIZE> treeLUT;
 
 void generateChunk(Chunk::Chunk *chunk)
 {
@@ -61,12 +78,7 @@ double evaluateNoise(OpenSimplexNoise::Noise noiseGen, double x, double y, doubl
 
 const int TREE_MASTER_SEED_X = mt();
 const int TREE_MASTER_SEED_Z = mt();
-
-void evaluateTreeCell(int cx, int cz, int wcx, int wcz, int* wcx_offset, int*
-	wcz_offset, int* wx, int* wz, int* bwx, int* bwz, int* leaves_noise){
-	
-	static int old_cx = -1, old_cz = -1, old_leaves_noise = -1;
-
+struct TreeCellInfo evaluateTreeCell(int wcx, int wcz){
 	int anglex = TREE_MASTER_SEED_X*wcx+TREE_MASTER_SEED_Z*wcz;
 	int anglez = TREE_MASTER_SEED_Z*wcz+TREE_MASTER_SEED_X*wcx;
 
@@ -74,37 +86,32 @@ void evaluateTreeCell(int cx, int cz, int wcx, int wcz, int* wcx_offset, int*
 	int wcx_off = WOOD_CELL_CENTER + WOOD_MAX_OFFSET * sines[anglex % 360];
 	int wcz_off = WOOD_CELL_CENTER + WOOD_MAX_OFFSET * cosines[anglez % 360];
 
-	//std::cout << "cell: (" << wcx << "," << wcz << "): offset: (" << (int)wcx_off << "," << (int)wcz_off << ")\n";
+	struct TreeCellInfo result{};
 
 	// Cell to world coordinates
-	*wx = wcx * WOOD_CELL_SIZE + wcx_off;
-	*wz = wcz * WOOD_CELL_SIZE + wcz_off;
+	result.wx = wcx * WOOD_CELL_SIZE + wcx_off;
+	result.wz = wcz * WOOD_CELL_SIZE + wcz_off;
 
-	*wcx_offset = wcx_off;
-	*wcz_offset = wcz_off;
+	result.wcx_offset = wcx_off;
+	result.wcz_offset = wcz_off;
 
-	*bwx = *wx - cx;
-	*bwz = *wz - cz;
+	result.leaves_y_pos = 1 + TREE_STANDARD_HEIGHT + GRASS_OFFSET + evaluateNoise(noiseGen1,
+		result.wx, result.wz, NOISE_GRASS_MULT, 0.01, 0.35, 2.1, 5);
 
-	if(old_leaves_noise == -1 || old_cx != cx || old_cz != cx || *bwx < 0 || *bwz < 0 || *bwx >= CHUNK_SIZE || *bwz >= CHUNK_SIZE)
-	     *leaves_noise = TREE_STANDARD_HEIGHT + GRASS_OFFSET + evaluateNoise(noiseGen1, *wx, *wz, NOISE_GRASS_MULT, 0.01, 0.35, 2.1, 5);
-	else *leaves_noise = TREE_STANDARD_HEIGHT + grassNoiseLUT[*bwx * CHUNK_SIZE + *bwz];
-
-	old_leaves_noise = *leaves_noise;
-	old_cx = cx;
-	old_cz = cz;
+	return result;
 }
 
 
-Block block;
-
 void generateNoise(Chunk::Chunk *chunk)
 {
+    Block block;
+
     int cx = chunk->getPosition().x * CHUNK_SIZE;
     int cy = chunk->getPosition().y * CHUNK_SIZE;
     int cz = chunk->getPosition().z * CHUNK_SIZE;
 
     // Precalculate LUTs
+    // Terrain LUTs
     for (int i = 0; i < grassNoiseLUT.size(); i++)
     {
 	int bx = i / CHUNK_SIZE;
@@ -115,13 +122,25 @@ void generateNoise(Chunk::Chunk *chunk)
 			cz+bz * NOISE_DIRT_Z_MULT)) * NOISE_DIRT_MULT);
     }
 
+    // Tree LUT
+    int tree_lut_x_offset = cx / WOOD_CELL_SIZE - 1;
+    int tree_lut_z_offset = cz / WOOD_CELL_SIZE - 1;
+
+    for(int i = 0; i < TREE_LUT_SIZE; i++)
+	for(int k = 0; k < TREE_LUT_SIZE; k++){
+	    int wcx = (tree_lut_x_offset + i);
+	    int wcz = (tree_lut_z_offset + k);
+	    treeLUT[i * TREE_LUT_SIZE + k] = evaluateTreeCell(wcx, wcz);
+	}
+
+
+    // Generation of terrain
     Block block_prev{Block::AIR};
     int block_prev_start{0};
     
     // A space filling curve is continuous, so there is no particular order
     for (int s = 0; s < CHUNK_VOLUME; s++)
     {
-
 	int bx = HILBERT_XYZ_DECODE[s][0];
 	int by = HILBERT_XYZ_DECODE[s][1];
 	int bz = HILBERT_XYZ_DECODE[s][2];
@@ -144,43 +163,44 @@ void generateNoise(Chunk::Chunk *chunk)
             block = Block::AIR;
 
 
-	// Divide the world into cells, so that no two trees will be adjacent of each other
-	int wcx = x / WOOD_CELL_SIZE, wcz = z / WOOD_CELL_SIZE;
-	int wcx_offset, wcz_offset, wx, wz, bwx, bwz, leavesNoise;
+	// Divide the world into cells, each with exactly one tree, so that no two trees will be adjacent of each other
+	struct TreeCellInfo info;
+	int wcx = (int)(x / WOOD_CELL_SIZE) - tree_lut_x_offset;
+	int wcz = (int)(z / WOOD_CELL_SIZE) - tree_lut_z_offset;
 
-	evaluateTreeCell(cx, cz, wcx, wcz, &wcx_offset, &wcz_offset, &wx, &wz, &bwx, &bwz,
-		&leavesNoise);
+	// Retrieve info on the cell from LUT
+	info = treeLUT[wcx * TREE_LUT_SIZE + wcz];
 
-	// A tree is to be places if the coordinates are those of the tree of the current cell
-	int wood_height = TREE_STANDARD_HEIGHT;// + noiseGenWood.eval(wcx * NOISE_TREE_X_MULT, wcz * NOISE_TREE_Z_MULT) * TREE_HEIGHT_VARIATION;
-	bool wood = x == wx && z == wz && y > grassNoiseLUT[d2] && y <= leavesNoise;
-	bool leaf = false;
+	// A tree is to be placed in this position if the coordinates are those of the tree of the current cell
+	int wood_height = TREE_STANDARD_HEIGHT;
+	bool wood = x == info.wx && z == info.wz && y > grassNoiseLUT[d2] && y <= info.leaves_y_pos;
+	bool leaf{false};
 
-	leaf = wood && y > leavesNoise && y < leavesNoise+LEAVES_RADIUS;
-	if(!leaf) leaf = utils::withinDistance(x,y,z, wx, leavesNoise, wz, LEAVES_RADIUS);
+	// Check placing of leaves
+	if(wood) leaf = y > info.leaves_y_pos && y < info.leaves_y_pos+LEAVES_RADIUS;
+	else{
+	    if(!leaf) leaf = utils::withinDistance(x,y,z, info.wx, info.leaves_y_pos, info.wz, LEAVES_RADIUS);
 
-	if(!leaf){
-	    evaluateTreeCell(cx, cz, wcx+1, wcz, &wcx_offset, &wcz_offset, &wx, &wz, &bwx, &bwz,
-		    &leavesNoise);
-	    leaf = utils::withinDistance(x,y,z, wx, leavesNoise, wz, LEAVES_RADIUS);
-	}
+	    // Eventually search neighboring cells
+	    if(!leaf && wcx+1 < TREE_LUT_SIZE){
+		info = treeLUT[(wcx+1) * TREE_LUT_SIZE + wcz];
+		leaf = utils::withinDistance(x,y,z, info.wx, info.leaves_y_pos, info.wz, LEAVES_RADIUS);
+	    }
 
-	if(!leaf){
-	    evaluateTreeCell(cx, cz, wcx, wcz+1, &wcx_offset, &wcz_offset, &wx, &wz, &bwx, &bwz,
-		    &leavesNoise);
-	    leaf = utils::withinDistance(x,y,z, wx, leavesNoise, wz, LEAVES_RADIUS);
-	}
+	    if(!leaf && wcx-1 >= 0){
+		info = treeLUT[(wcx-1) * TREE_LUT_SIZE + wcz];
+		leaf = utils::withinDistance(x,y,z, info.wx, info.leaves_y_pos, info.wz, LEAVES_RADIUS);
+	    }
 
-	if(!leaf){
-	    evaluateTreeCell(cx, cz, wcx-1, wcz, &wcx_offset, &wcz_offset, &wx, &wz, &bwx, &bwz,
-		    &leavesNoise);
-	 leaf = utils::withinDistance(x,y,z, wx, leavesNoise, wz, LEAVES_RADIUS);
-	}
+	    if(!leaf && wcz-1 >= 0){
+		info = treeLUT[wcx * TREE_LUT_SIZE + (wcz-1)];
+		leaf = utils::withinDistance(x,y,z, info.wx, info.leaves_y_pos, info.wz, LEAVES_RADIUS);
+	    }
 
-	if(!leaf){
-	    evaluateTreeCell(cx, cz, wcx, wcz-1, &wcx_offset, &wcz_offset, &wx, &wz, &bwx, &bwz,
-		    &leavesNoise);
-	    leaf = utils::withinDistance(x,y,z, wx, leavesNoise, wz, LEAVES_RADIUS);
+	    if(!leaf && wcz+1 < TREE_LUT_SIZE){
+		info = treeLUT[wcx * TREE_LUT_SIZE + (wcz+1)];
+		leaf = utils::withinDistance(x,y,z, info.wx, info.leaves_y_pos, info.wz, LEAVES_RADIUS);
+	    }
 	}
 
 	if(wood) block = Block::WOOD;
