@@ -8,8 +8,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <oneapi/tbb/concurrent_hash_map.h>
-
 #include "block.hpp"
 #include "chunk.hpp"
 #include "chunkgenerator.hpp"
@@ -19,16 +17,26 @@
 
 namespace chunkmanager
 {
-    typedef oneapi::tbb::concurrent_hash_map<uint32_t, Chunk::Chunk*> ChunkTable;
-    ChunkTable chunks;
+    void generate();
+    void mesh();
 
-    //std::unordered_map<std::uint32_t, Chunk::Chunk *> chunks;
+    // Concurrent hash table of chunks
+    ChunkTable chunks;
+    // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
     std::array<std::array<int, 3>, chunks_volume> chunks_indices;
 
+    /* Multithreading */
     std::atomic_bool should_run;
+    std::thread gen_thread, mesh_thread, update_thread;
+    // Queue of chunks to be generated
+    ChunkPriorityQueue chunks_to_generate_queue;
+    // Queue of chunks to be meshed
+    ChunkPriorityQueue chunks_to_mesh_queue;
 
+
+    // Init chunkmanager. Chunk indices and start threads
     int chunks_volume_real;
-    std::thread init(){
+    void init(){
 	int index{0};
 	int rr{RENDER_DISTANCE * RENDER_DISTANCE};
 
@@ -74,8 +82,31 @@ namespace chunkmanager
 	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
 
 	should_run = true;
-	std::thread update_thread (update);
-	return update_thread;
+	update_thread = std::thread(update);
+	gen_thread = std::thread(generate);
+	mesh_thread = std::thread(mesh);
+    }
+
+    // Method for world generation thread(s)
+    void generate(){
+	while(should_run){
+	    ChunkPQEntry entry;
+	    while(chunks_to_generate_queue.try_pop(entry)) generateChunk(entry.first);
+	}
+    }
+
+    // Method for chunk meshing thread(s)
+    void mesh(){
+	while(should_run){
+	    ChunkPQEntry entry;
+	    if(chunks_to_mesh_queue.try_pop(entry)){
+		Chunk::Chunk* chunk = entry.first;
+		if(chunk->getState(Chunk::CHUNK_STATE_GENERATED)){
+		    chunkmesher::mesh(chunk);
+		    renderer::getChunksToRender().insert(chunk);
+		}
+	    }
+	}
     }
 
     oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
@@ -98,10 +129,11 @@ namespace chunkmanager
 		ChunkTable::accessor a;
 		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
 
-		if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) generateChunk(a->second);
-		if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))) chunkmesher::mesh(a->second);
-
-		renderer::getChunksToRender().insert(a->second);
+		if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) {
+		    chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
+		}else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
+		    chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
+		}
 
 		a.release();
 	    }
@@ -122,7 +154,7 @@ namespace chunkmanager
 	}
     }
 
-    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1024). There's actually two spare bits
+    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
     uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k){
 	 return i | (j << 10) | (k << 20); 
     }
@@ -130,7 +162,12 @@ namespace chunkmanager
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
     std::array<std::array<int, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
-    void stop() { should_run=false; }
+    void stop() {
+	should_run=false;
+	update_thread.join();
+	gen_thread.join();
+	mesh_thread.join();
+    }
     void destroy(){
 	/*for(const auto& n : chunks){
 	    delete n.second;
@@ -154,10 +191,10 @@ namespace chunkmanager
 	    int bz = pos.z - pz*CHUNK_SIZE;
 
 	    // exit early if the position is invalid or the chunk does not exist
-	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) return;
+	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) continue;
 
 	    ChunkTable::accessor a;
-	    if(!chunks.find(a, calculateIndex(px, py, pz))) return;
+	    if(!chunks.find(a, calculateIndex(px, py, pz))) continue;
 	    Chunk::Chunk* c = a->second;
 	    if(!c->getState(Chunk::CHUNK_STATE_GENERATED) || c->getState(Chunk::CHUNK_STATE_EMPTY)) continue;
 
@@ -192,12 +229,13 @@ namespace chunkmanager
 		    c1->setBlock( Block::STONE, bx1, by1, bz1);
 
 		    // mark the mesh of the chunk the be updated
-		    c1->setState(Chunk::CHUNK_STATE_MESHED, false);
+		    chunks_to_mesh_queue.push(std::make_pair(c1, MESHING_PRIORITY_PLAYER_EDIT));
+		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
 		}else{
 		    // replace the current block with air to remove it
 		    c->setBlock( Block::AIR, bx, by, bz);
 
-		    c->setState(Chunk::CHUNK_STATE_MESHED, false);
+		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
 		}
 		break;
 	    }

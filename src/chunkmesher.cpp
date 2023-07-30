@@ -222,7 +222,6 @@ void mesh(Chunk::Chunk* chunk)
 
     chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
     renderer::getMeshDataQueue().push(mesh_data);
-    return;
 }
 
 void sendtogpu(MeshData* mesh_data)

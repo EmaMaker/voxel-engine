@@ -69,8 +69,8 @@ int main()
 	cosines[i] = cos(3.14 / 180 * i);
     }
     SpaceFilling::initLUT();
+    chunkmanager::init();
     renderer::init();
-    std::thread chunkmanager_thread = chunkmanager::init();
 
     while (!glfwWindowShouldClose(window))
     {
@@ -109,7 +109,6 @@ int main()
 
     // Stop threads and wait for them to finish
     chunkmanager::stop();
-    chunkmanager_thread.join();
 
     // Cleanup allocated memory
     chunkmanager::destroy();
