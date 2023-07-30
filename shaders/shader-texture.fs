@@ -23,6 +23,7 @@ void main(){
     // Load the texture
     // anti-gamma-correction of the texture. Without this it would be gamma corrected twice!
     vec3 vColor = pow(texture(textureArray, TexCoord).rgb, vec3(gamma));
+    if(TexCoord.z == 4) vColor = vColor * normalize(vec3(10, 250, 10));
     
     vec3 normal = normalize(Normal);
 

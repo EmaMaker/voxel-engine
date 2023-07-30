@@ -26,7 +26,7 @@ namespace renderer{
 	theShader = new Shader{"shaders/shader-texture.gs", "shaders/shader-texture.vs", "shaders/shader-texture.fs"};
 
 	// Create 3d array texture
-	constexpr int layerCount = 3;
+	constexpr int layerCount = 5;
 	glGenTextures(1, &chunkTexture);
 	glBindTexture(GL_TEXTURE_2D_ARRAY, chunkTexture);
 	
@@ -38,6 +38,10 @@ namespace renderer{
 	glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, texels1);
 	unsigned char *texels2 = stbi_load("textures/grass_top.png", &width, &height, &nrChannels, 0);
 	glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 2, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, texels2);
+	unsigned char *texels3 = stbi_load("textures/wood.png", &width, &height, &nrChannels, 0);
+	glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 3, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, texels3);
+	unsigned char *texels4 = stbi_load("textures/leaves.png", &width, &height, &nrChannels, 0);
+	glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 4, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, texels4);
 
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_MAG_FILTER,GL_NEAREST);

@@ -63,8 +63,12 @@ int main()
 
     std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
 
-    SpaceFilling::initLUT();
     wireframe = false;
+    for(int i = 0; i < 360; i++){
+	sines[i] = sin(3.14 / 180 * i);
+	cosines[i] = cos(3.14 / 180 * i);
+    }
+    SpaceFilling::initLUT();
     renderer::init();
     std::thread chunkmanager_thread = chunkmanager::init();
 
