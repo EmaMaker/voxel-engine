@@ -126,13 +126,27 @@ namespace chunkmanager
 
 		if(x > 1023 || y > 1023 || z > 1023) continue;
 
-		ChunkTable::accessor a;
+		ChunkTable::accessor a, a1, a2, b1, b2, c1, c2;
 		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
 
 		if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) {
 		    chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
 		}else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
-		    chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
+		    if(
+			    (x + 1 > 1023 || (chunks.find(a1, calculateIndex(x+1, y, z)) &&
+					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+			    (x - 1 < 0|| (chunks.find(a1, calculateIndex(x-1, y, z)) &&
+					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+			    (y + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y+1, z)) &&
+					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+			    (y - 1 < 0|| (chunks.find(a1, calculateIndex(x, y-1, z)) &&
+					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+			    (z + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y, z+1)) &&
+					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+			    (z - 1 < 0|| (chunks.find(a1, calculateIndex(x, y, z-1)) &&
+					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED)))
+		      )
+		       chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
 		}
 
 		a.release();
