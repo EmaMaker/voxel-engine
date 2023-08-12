@@ -250,6 +250,21 @@ namespace chunkmanager
 		    c->setBlock( Block::AIR, bx, by, bz);
 
 		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
+
+		    // When necessary, also mesh nearby chunks
+		    ChunkTable::accessor a1, a2, b1, b2, c1, c2;
+		    if(bx == 0 && px - 1 >= 0 && chunks.find(a1, calculateIndex(px - 1, py, pz)))
+		      chunkmesher::mesh(a1->second);
+		    if(by == 0 && py - 1 >= 0 && chunks.find(b1, calculateIndex(px, py - 1, pz)))
+		      chunkmesher::mesh(b1->second);
+		    if(bz == 0 && pz - 1 >= 0 && chunks.find(c1, calculateIndex(px, py, pz - 1)))
+		      chunkmesher::mesh(c1->second);
+		    if(bx == CHUNK_SIZE - 1 && px +1 < 1024 && chunks.find(a2, calculateIndex(px +1, py, pz)))
+		      chunkmesher::mesh(a2->second);
+		    if(by == CHUNK_SIZE - 1 && py +1 < 1024 && chunks.find(b2, calculateIndex(px, py +1, pz)))
+		      chunkmesher::mesh(b2->second);
+		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, calculateIndex(px, py, pz +1)))
+		      chunkmesher::mesh(c2->second);
 		}
 		break;
 	    }
