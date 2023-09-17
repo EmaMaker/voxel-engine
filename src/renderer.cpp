@@ -23,7 +23,6 @@ namespace renderer{
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
 
-
     void init(GLFWwindow* window){
 	// Setup rendering
 	// We will render the image to a texture, then display the texture on a quad that fills the
@@ -105,9 +104,10 @@ namespace renderer{
     }
 
 
-    void render(GLFWwindow* window){
+    void render(){
 	// Bind the frame buffer to render to the texture
 	glBindFramebuffer(GL_FRAMEBUFFER, renderTexFrameBuffer);
+	glViewport(0, 0, screenWidth, screenHeight);
 	glEnable(GL_DEPTH_TEST);
 	if(wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -220,14 +220,24 @@ namespace renderer{
     }
 
     void framebuffer_size_callback(GLFWwindow *window, int width, int height){
+	resize_framebuffer(width, height);
+    }
+
+    void resize_framebuffer(int width, int height){
 	screenWidth = width;
 	screenHeight = height;
 
+	theCamera.viewPortCallBack(nullptr, width, height);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, renderTexFrameBuffer);
 	glBindTexture(GL_TEXTURE_2D, renderTex);
-	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, screenWidth, screenHeight, 0,GL_RGB, GL_UNSIGNED_BYTE, 0); // Support
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, width, height, 0,GL_RGB, GL_UNSIGNED_BYTE, 0); // Support
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderTex, 0);
 
 	glBindRenderbuffer(GL_RENDERBUFFER, renderTexDepthBuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenWidth, screenHeight); //Support up to
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height); //Support up to
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
+		renderTexDepthBuffer);
     }
 
     void destroy(){

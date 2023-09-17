@@ -99,7 +99,7 @@ int main()
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
 	// Render pass
-	renderer::render(window);
+	renderer::render();
 
         // Swap buffers to avoid tearing
         glfwSwapBuffers(window);

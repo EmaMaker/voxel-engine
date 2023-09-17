@@ -12,9 +12,11 @@ namespace renderer{
     typedef oneapi::tbb::concurrent_unordered_set<Chunk::Chunk*> RenderSet;
 
     void init(GLFWwindow* window);
-    void render(GLFWwindow* window);
+    void render();
+    void resize_framebuffer(int width, int height);
     void framebuffer_size_callback(GLFWwindow *window, int width, int height);
     void destroy();
+
     Shader* getRenderShader();
     RenderSet& getChunksToRender();
     oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue();
