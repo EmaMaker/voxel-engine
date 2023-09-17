@@ -217,6 +217,9 @@ namespace renderer{
 	glDisable(GL_DEPTH_TEST);
 	glBindTexture(GL_TEXTURE_2D, renderTex);
 	quadShader->use();
+	quadShader->setInt("screenWidth", screenWidth);
+	quadShader->setInt("screenHeight", screenHeight);
+	quadShader->setInt("crosshairType", 1);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
     }
