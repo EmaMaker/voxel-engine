@@ -155,4 +155,7 @@ void processInput(GLFWwindow *window)
     // Reset blockpicking if enough time has passed
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE) blockpick = false;
 
+    if(glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS) renderer::saveScreenshot();
+    if(glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS) renderer::saveScreenshot(true);
+
 }

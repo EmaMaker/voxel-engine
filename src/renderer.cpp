@@ -7,6 +7,8 @@
 #include "chunkmesher.hpp"
 #include "globals.hpp"
 #include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 namespace renderer{
     RenderSet chunks_torender;
@@ -238,6 +240,30 @@ namespace renderer{
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height); //Support up to
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
 		renderTexDepthBuffer);
+    }
+
+    void saveScreenshot(bool forceFullHD){
+	int old_screenWidth = screenWidth;
+	int old_screenHeight = screenHeight;
+
+	if(forceFullHD){
+	    resize_framebuffer(1920, 1080);
+	    // Do a render pass
+	    render();
+	}
+
+	// Bind the render frame buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, renderTexFrameBuffer);
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	// Save the framebuffer in a byte array
+	GLubyte data[screenWidth*screenHeight*3];
+	glReadPixels(0, 0, screenWidth, screenHeight, GL_RGB, GL_UNSIGNED_BYTE, data);
+	// Save the byte array onto a texture
+	stbi_flip_vertically_on_write(1);
+	stbi_write_png(forceFullHD ? "screenshot_fullhd.png" : "screenshot.png", screenWidth,
+		screenHeight, 3, data, screenWidth*3);
+
+	if(forceFullHD) resize_framebuffer(old_screenWidth, old_screenHeight);
     }
 
     void destroy(){

@@ -17,6 +17,8 @@ namespace renderer{
     void framebuffer_size_callback(GLFWwindow *window, int width, int height);
     void destroy();
 
+    void saveScreenshot(bool forceFullHD=false);
+
     Shader* getRenderShader();
     RenderSet& getChunksToRender();
     oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue();
