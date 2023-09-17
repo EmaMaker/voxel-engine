@@ -13,18 +13,73 @@ namespace renderer{
     oneapi::tbb::concurrent_vector<Chunk::Chunk*> render_todelete;
     oneapi::tbb::concurrent_queue<chunkmesher::MeshData*> MeshDataQueue;
 
-    Shader* theShader;
+    Shader* theShader, *quadShader;
     GLuint chunkTexture;
 
     Shader* getRenderShader() { return theShader; }
     RenderSet& getChunksToRender(){ return chunks_torender; }
     oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
 
+    GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
+    int screenWidth, screenHeight;
 
-    void init(){
+
+    void init(GLFWwindow* window){
+	// Setup rendering
+	// We will render the image to a texture, then display the texture on a quad that fills the
+	// entire screen.
+	// This makes it easy to capture screenshots or apply filters to the final image (e.g.
+	// over-impress HUD elements like a crosshair)
+	glfwGetWindowSize(window, &screenWidth, &screenHeight);
+
+	glGenFramebuffers(1, &renderTexFrameBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, renderTexFrameBuffer);
+
+	// Depth buffer
+	glGenRenderbuffers(1, &renderTexDepthBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, renderTexDepthBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenWidth, screenHeight); //Support up to
+										//full-hd for now
+	// Attach it to the frame buffer
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
+		renderTexDepthBuffer);
+	// Create texture to render to
+	// The texture we're going to render to
+	glGenTextures(1, &renderTex);
+	glBindTexture(GL_TEXTURE_2D, renderTex);
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, screenWidth, screenHeight, 0,GL_RGB, GL_UNSIGNED_BYTE, 0); // Support
+											 // up to
+											 // full-hd
+											 // for now
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	// Set the texture as a render attachment for the framebuffer
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderTex, 0);
+
+	// Create the quad to render the texture to
+	float vertices[] = {
+	    -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+	    -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+	    1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+	    1.0f, 1.0f, 0.0f, 1.0f, 1.0f
+	};
+	glGenBuffers(1, &quadVBO);
+	glGenVertexArrays(1, &quadVAO);
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*)(3*sizeof(float)));
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glBindVertexArray(0);
+
+	// Rendering of the world
 	// Create Shader
 	theShader = new Shader{"shaders/shader-texture.gs", "shaders/shader-texture.vs", "shaders/shader-texture.fs"};
+	quadShader = new Shader{nullptr, "shaders/shader-quad.vs", "shaders/shader-quad.fs"};
 
+	// Block textures
 	// Create 3d array texture
 	constexpr int layerCount = 5;
 	glGenTextures(1, &chunkTexture);
@@ -49,7 +104,18 @@ namespace renderer{
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_REPEAT);
     }
 
-    void render(){
+
+    void render(GLFWwindow* window){
+	// Bind the frame buffer to render to the texture
+	glBindFramebuffer(GL_FRAMEBUFFER, renderTexFrameBuffer);
+	glEnable(GL_DEPTH_TEST);
+	if(wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	// Clear the screen
+        glClearColor(0.431f, 0.694f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	int total{0}, toGpu{0};
 	glm::vec4 frustumPlanes[6];
 	theCamera.getFrustumPlanes(frustumPlanes, true);
@@ -64,9 +130,6 @@ namespace renderer{
 	    chunkmesher::sendtogpu(m);
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
-
-	if(wireframe) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	for(auto& c : chunks_torender){
 	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
@@ -139,6 +202,32 @@ namespace renderer{
 	    chunkmanager::getDeleteVector().push(c);
 	}
 	render_todelete.clear();
+
+
+	// Now to render the quad, with the texture on top
+	// Switch to the default frame buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(0.431f, 0.694f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	glBindVertexArray(quadVAO);
+	glDisable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, renderTex);
+	quadShader->use();
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindVertexArray(0);
+    }
+
+    void framebuffer_size_callback(GLFWwindow *window, int width, int height){
+	screenWidth = width;
+	screenHeight = height;
+
+	glBindTexture(GL_TEXTURE_2D, renderTex);
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, screenWidth, screenHeight, 0,GL_RGB, GL_UNSIGNED_BYTE, 0); // Support
+
+	glBindRenderbuffer(GL_RENDERBUFFER, renderTexDepthBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenWidth, screenHeight); //Support up to
     }
 
     void destroy(){

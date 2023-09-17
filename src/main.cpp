@@ -57,7 +57,6 @@ int main()
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
-    glEnable(GL_DEPTH_TEST);
     //glEnable(GL_FRAMEBUFFER_SRGB); //gamma correction done in fragment shader
     //glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
 
@@ -70,7 +69,7 @@ int main()
     }
     SpaceFilling::initLUT();
     chunkmanager::init();
-    renderer::init();
+    renderer::init(window);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -100,7 +99,7 @@ int main()
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
 	// Render pass
-	renderer::render();
+	renderer::render(window);
 
         // Swap buffers to avoid tearing
         glfwSwapBuffers(window);
@@ -122,6 +121,7 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
     glViewport(0, 0, width, height);
     theCamera.viewPortCallBack(window, width, height);
+    renderer::framebuffer_size_callback(window, width, height);
 }
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos)
