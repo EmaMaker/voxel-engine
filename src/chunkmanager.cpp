@@ -34,6 +34,7 @@ namespace chunkmanager
     // Queue of chunks to be meshed
     ChunkPriorityQueue chunks_to_mesh_queue;
 
+    int block_to_place{2};
 
     // Init chunkmanager. Chunk indices and start threads
     int chunks_volume_real;
@@ -86,6 +87,8 @@ namespace chunkmanager
 	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
 	mesh_thread = std::thread(mesh);
+
+	debug::window::set_parameter("block_type_return", &block_to_place);
     }
 
     // Method for world generation thread(s)
@@ -254,7 +257,7 @@ namespace chunkmanager
 		    if(!chunks.find(a1, calculateIndex(px1, py1, pz1))) return;
 		    Chunk::Chunk* c1 = a1->second;
 		    // place the new block (only stone for now)
-		    c1->setBlock( Block::STONE, bx1, by1, bz1);
+		    c1->setBlock((Block)block_to_place, bx1, by1, bz1);
 
 		    // mark the mesh of the chunk the be updated
 		    chunks_to_mesh_queue.push(std::make_pair(c1, MESHING_PRIORITY_PLAYER_EDIT));
