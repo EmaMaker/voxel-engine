@@ -108,6 +108,8 @@ namespace debug{
 			    std::any_cast<int>(parameters.at("render_chunks_deleted")));
 		    ImGui::Text("Vertices in the scene: %d",
 			std::any_cast<int>(parameters.at("render_chunks_vertices")));
+		    ImGui::Checkbox("Wireframe",
+			    std::any_cast<bool*>(parameters.at("wireframe_return")));
 		}
 
 		if(ImGui::CollapsingHeader("Chunks")){

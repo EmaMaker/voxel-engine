@@ -22,7 +22,6 @@ int frames = 0;
 
 float lastBlockPick=0.0;
 bool blockpick = false;
-bool canChangeWireframe = true;
 bool cursor = false;
 
 int main()
@@ -152,12 +151,6 @@ void processInput(GLFWwindow *window)
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
-
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS && canChangeWireframe){
-	wireframe = !wireframe;
-	canChangeWireframe = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) canChangeWireframe = true;
 
     // Reset blockpicking if enough time has passed
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE) blockpick = false;

@@ -25,7 +25,9 @@ namespace renderer{
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
+
     int crosshair_type{0};
+    bool wireframe{false};
 
     void init(GLFWwindow* window){
 	// Setup rendering
@@ -107,6 +109,7 @@ namespace renderer{
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_REPEAT);
 
 	debug::window::set_parameter("crosshair_type_return", &crosshair_type);
+	debug::window::set_parameter("wireframe_return", &wireframe);
     }
 
 
