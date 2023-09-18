@@ -82,10 +82,12 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+	debug::window::set_parameter("frametime", deltaTime);
         // FPS Counter
         frames++;
         if(currentFrame - lastFPSFrame >= 1.0f){
-            std::cout << "FPS: " << frames << " Frametime: " << deltaTime << std::endl;
+            //std::cout << "FPS: " << frames << " Frametime: " << deltaTime << std::endl;
+	    debug::window::set_parameter("fps", frames);
             frames = 0;
             lastFPSFrame = currentFrame;
         }

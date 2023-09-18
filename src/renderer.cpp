@@ -123,7 +123,7 @@ namespace renderer{
 	debug::window::prerender();
 
 	/* RENDER THE WORLD TO TEXTURE */
-	int total{0}, toGpu{0};
+	int total{0}, toGpu{0}, oof{0}, vertices{0};
 	glm::vec4 frustumPlanes[6];
 	theCamera.getFrustumPlanes(frustumPlanes, true);
 	glm::vec3 cameraPos = theCamera.getPos();	
@@ -142,6 +142,9 @@ namespace renderer{
 	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
 	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
 		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
+
+		// Increase total vertex count
+		vertices += c->numVertices;
 
 		// reset out-of-vision and unload flags
 		c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
@@ -179,12 +182,15 @@ namespace renderer{
 			glBindVertexArray(c->VAO);
 			glDrawArrays(GL_POINTS, 0, c->numVertices);
 			glBindVertexArray(0);
+
+			toGpu++;
 		    }
 		}
 	    }else{
 		// When the chunk is outside render distance
 
 		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
+		    oof++;
 		    if(glfwGetTime() - c->unload_timer > UNLOAD_TIMEOUT){
 			// If chunk was already out and enough time has passed
 			// Mark the chunk to be unloaded
@@ -200,6 +206,14 @@ namespace renderer{
 		
 	    }
 	}
+
+	total = chunks_torender.size();
+	debug::window::set_parameter("render_chunks_total", total);
+	debug::window::set_parameter("render_chunks_rendered", toGpu);
+	debug::window::set_parameter("render_chunks_culled", total-toGpu);
+	debug::window::set_parameter("render_chunks_oof", oof);
+	debug::window::set_parameter("render_chunks_deleted", (int) (render_todelete.size()));
+	debug::window::set_parameter("render_chunks_vertices", vertices);
 
 	for(auto& c : render_todelete){
 	    // we can get away with unsafe erase as access to the container is only done by this
