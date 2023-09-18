@@ -5,5 +5,5 @@ set(SOURCE_FILES main.cpp chunk.cpp chunkmanager.cpp chunkmesher.cpp chunkgenera
 
 add_executable(OpenGLTest ${SOURCE_FILES})
 
-target_link_libraries(OpenGLTest glfw tbb glad glm)
+target_link_libraries(OpenGLTest glfw tbb glad glm imgui)
 install(TARGETS OpenGLTest DESTINATION ${DIVISIBLE_INSTALL_BIN_DIR})
