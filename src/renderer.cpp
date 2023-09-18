@@ -5,6 +5,7 @@
 
 #include "chunkmanager.hpp"
 #include "chunkmesher.hpp"
+#include "debugwindow.hpp"
 #include "globals.hpp"
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -118,6 +119,10 @@ namespace renderer{
         glClearColor(0.431f, 0.694f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	/* UPDATE IMGUI */
+	debug::window::prerender();
+
+	/* RENDER THE WORLD TO TEXTURE */
 	int total{0}, toGpu{0};
 	glm::vec4 frustumPlanes[6];
 	theCamera.getFrustumPlanes(frustumPlanes, true);
@@ -205,7 +210,7 @@ namespace renderer{
 	}
 	render_todelete.clear();
 
-
+	/* DISPLAY TEXTURE ON A QUAD THAT FILLS THE SCREEN */
 	// Now to render the quad, with the texture on top
 	// Switch to the default frame buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -222,6 +227,8 @@ namespace renderer{
 	quadShader->setInt("crosshairType", 1);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
+
+	debug::window::render();
     }
 
     void framebuffer_size_callback(GLFWwindow *window, int width, int height){
@@ -271,6 +278,7 @@ namespace renderer{
 
     void destroy(){
 	delete theShader;
+	delete quadShader;
     }
 
 

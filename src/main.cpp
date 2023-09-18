@@ -10,6 +10,7 @@
 
 #include "chunkmanager.hpp"
 #include "main.hpp"
+#include "debugwindow.hpp"
 #include "renderer.hpp"
 #include "spacefilling.hpp"
 #include "shader.hpp"
@@ -22,6 +23,7 @@ int frames = 0;
 float lastBlockPick=0.0;
 bool blockpick = false;
 bool canChangeWireframe = true;
+bool cursor = false;
 
 int main()
 {
@@ -67,8 +69,10 @@ int main()
 	sines[i] = sin(3.14 / 180 * i);
 	cosines[i] = cos(3.14 / 180 * i);
     }
+
     SpaceFilling::initLUT();
     chunkmanager::init();
+    debug::window::init(window);
     renderer::init(window);
 
     while (!glfwWindowShouldClose(window))
@@ -112,6 +116,7 @@ int main()
     // Cleanup allocated memory
     chunkmanager::destroy();
     renderer::destroy();
+    debug::window::destroy();
 
     glfwTerminate();
     return 0;
@@ -157,5 +162,10 @@ void processInput(GLFWwindow *window)
 
     if(glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS) renderer::saveScreenshot();
     if(glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS) renderer::saveScreenshot(true);
+    if(glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
+	cursor = !cursor;
+	glfwSetInputMode(window, GLFW_CURSOR, cursor ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+    }
+    
 
 }

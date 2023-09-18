@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.2)
 project(OpenGLTest)
 
-set(SOURCE_FILES main.cpp chunk.cpp chunkmanager.cpp chunkmesher.cpp chunkgenerator.cpp renderer.cpp spacefilling.cpp stb_image.cpp utils.cpp OpenSimplexNoise.cpp)
+set(SOURCE_FILES main.cpp chunk.cpp chunkmanager.cpp chunkmesher.cpp chunkgenerator.cpp
+	debugwindow.cpp renderer.cpp spacefilling.cpp stb_image.cpp utils.cpp OpenSimplexNoise.cpp)
 
 add_executable(OpenGLTest ${SOURCE_FILES})
 
