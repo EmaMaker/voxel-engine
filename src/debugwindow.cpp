@@ -59,7 +59,6 @@ namespace debug{
 	    parameters[key] = value;
 	}
 
-	int ch_type{0};
 	int block_type{0};
 	void show_debug_window(){
 	    ImGui::Begin("Debug Window");
@@ -91,9 +90,9 @@ namespace debug{
 		    }
 
 		    ImGui::SliderInt("Crosshair type",
-			    &ch_type, 0, 1);
+			    std::any_cast<int*>(parameters.at("crosshair_type_return")), 0, 1);
 		    ImGui::SliderInt("Block to place",
-			    &block_type, 2, 6);
+			    block_type, 2, 6);
 		}
 
 		if(ImGui::CollapsingHeader("Mesh")){

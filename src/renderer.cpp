@@ -25,6 +25,7 @@ namespace renderer{
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
+    int crosshair_type{0};
 
     void init(GLFWwindow* window){
 	// Setup rendering
@@ -104,6 +105,8 @@ namespace renderer{
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_REPEAT);
+
+	debug::window::set_parameter("crosshair_type_return", &crosshair_type);
     }
 
 
@@ -238,7 +241,7 @@ namespace renderer{
 	quadShader->use();
 	quadShader->setInt("screenWidth", screenWidth);
 	quadShader->setInt("screenHeight", screenHeight);
-	quadShader->setInt("crosshairType", 1);
+	quadShader->setInt("crosshairType", crosshair_type);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
 
