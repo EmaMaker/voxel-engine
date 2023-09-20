@@ -12,6 +12,7 @@
 #include "chunk.hpp"
 #include "chunkgenerator.hpp"
 #include "chunkmesher.hpp"
+#include "debugwindow.hpp"
 #include "globals.hpp"
 #include "renderer.hpp"
 
@@ -33,6 +34,7 @@ namespace chunkmanager
     // Queue of chunks to be meshed
     ChunkPriorityQueue chunks_to_mesh_queue;
 
+    int block_to_place{2};
 
     // Init chunkmanager. Chunk indices and start threads
     int chunks_volume_real;
@@ -85,6 +87,8 @@ namespace chunkmanager
 	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
 	mesh_thread = std::thread(mesh);
+
+	debug::window::set_parameter("block_type_return", &block_to_place);
     }
 
     // Method for world generation thread(s)
@@ -116,6 +120,16 @@ namespace chunkmanager
 	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
+
+	    debug::window::set_parameter("px", theCamera.getAtomicPosX());
+	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
+	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
+	    debug::window::set_parameter("cx", chunkX);
+	    debug::window::set_parameter("cy", chunkY);
+	    debug::window::set_parameter("cz", chunkZ);
+	    debug::window::set_parameter("lx", theCamera.getFront().x);
+	    debug::window::set_parameter("ly", theCamera.getFront().y);
+	    debug::window::set_parameter("lz", theCamera.getFront().z);
 
 	    // Update other chunks
 	    for(int i = 0; i < chunks_volume_real; i++) {
@@ -151,6 +165,9 @@ namespace chunkmanager
 
 		a.release();
 	    }
+
+	    debug::window::set_parameter("update_chunks_total", (int) (chunks.size()));
+	    debug::window::set_parameter("update_chunks_bucket", (int) (chunks.max_size()));
 
 	    Chunk::Chunk* n;
 	    nUnloaded = 0;
@@ -240,11 +257,17 @@ namespace chunkmanager
 		    if(!chunks.find(a1, calculateIndex(px1, py1, pz1))) return;
 		    Chunk::Chunk* c1 = a1->second;
 		    // place the new block (only stone for now)
-		    c1->setBlock( Block::STONE, bx1, by1, bz1);
+		    c1->setBlock((Block)block_to_place, bx1, by1, bz1);
 
 		    // mark the mesh of the chunk the be updated
 		    chunks_to_mesh_queue.push(std::make_pair(c1, MESHING_PRIORITY_PLAYER_EDIT));
 		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
+
+		    debug::window::set_parameter("block_last_action", place);
+		    debug::window::set_parameter("block_last_action_block_type", (int)(Block::STONE));
+		    debug::window::set_parameter("block_last_action_x", px1*CHUNK_SIZE + bx1);
+		    debug::window::set_parameter("block_last_action_y", px1*CHUNK_SIZE + by1);
+		    debug::window::set_parameter("block_last_action_z", px1*CHUNK_SIZE + bz1);
 		}else{
 		    // replace the current block with air to remove it
 		    c->setBlock( Block::AIR, bx, by, bz);
@@ -265,6 +288,13 @@ namespace chunkmanager
 		      chunkmesher::mesh(b2->second);
 		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, calculateIndex(px, py, pz +1)))
 		      chunkmesher::mesh(c2->second);
+
+		    debug::window::set_parameter("block_last_action", place);
+		    debug::window::set_parameter("block_last_action_block_type", (int) (Block::AIR));
+		    debug::window::set_parameter("block_last_action_x", px*CHUNK_SIZE + bx);
+		    debug::window::set_parameter("block_last_action_y", py*CHUNK_SIZE + by);
+		    debug::window::set_parameter("block_last_action_z", pz*CHUNK_SIZE + bz);
+
 		}
 		break;
 	    }

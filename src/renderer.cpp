@@ -5,6 +5,7 @@
 
 #include "chunkmanager.hpp"
 #include "chunkmesher.hpp"
+#include "debugwindow.hpp"
 #include "globals.hpp"
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -24,6 +25,9 @@ namespace renderer{
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
+
+    int crosshair_type{0};
+    bool wireframe{false};
 
     void init(GLFWwindow* window){
 	// Setup rendering
@@ -103,6 +107,9 @@ namespace renderer{
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_S,GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY,GL_TEXTURE_WRAP_T,GL_REPEAT);
+
+	debug::window::set_parameter("crosshair_type_return", &crosshair_type);
+	debug::window::set_parameter("wireframe_return", &wireframe);
     }
 
 
@@ -118,7 +125,11 @@ namespace renderer{
         glClearColor(0.431f, 0.694f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	int total{0}, toGpu{0};
+	/* UPDATE IMGUI */
+	debug::window::prerender();
+
+	/* RENDER THE WORLD TO TEXTURE */
+	int total{0}, toGpu{0}, oof{0}, vertices{0};
 	glm::vec4 frustumPlanes[6];
 	theCamera.getFrustumPlanes(frustumPlanes, true);
 	glm::vec3 cameraPos = theCamera.getPos();	
@@ -137,6 +148,9 @@ namespace renderer{
 	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
 	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
 		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
+
+		// Increase total vertex count
+		vertices += c->numVertices;
 
 		// reset out-of-vision and unload flags
 		c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
@@ -174,12 +188,15 @@ namespace renderer{
 			glBindVertexArray(c->VAO);
 			glDrawArrays(GL_POINTS, 0, c->numVertices);
 			glBindVertexArray(0);
+
+			toGpu++;
 		    }
 		}
 	    }else{
 		// When the chunk is outside render distance
 
 		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
+		    oof++;
 		    if(glfwGetTime() - c->unload_timer > UNLOAD_TIMEOUT){
 			// If chunk was already out and enough time has passed
 			// Mark the chunk to be unloaded
@@ -196,6 +213,14 @@ namespace renderer{
 	    }
 	}
 
+	total = chunks_torender.size();
+	debug::window::set_parameter("render_chunks_total", total);
+	debug::window::set_parameter("render_chunks_rendered", toGpu);
+	debug::window::set_parameter("render_chunks_culled", total-toGpu);
+	debug::window::set_parameter("render_chunks_oof", oof);
+	debug::window::set_parameter("render_chunks_deleted", (int) (render_todelete.size()));
+	debug::window::set_parameter("render_chunks_vertices", vertices);
+
 	for(auto& c : render_todelete){
 	    // we can get away with unsafe erase as access to the container is only done by this
 	    // thread
@@ -205,7 +230,7 @@ namespace renderer{
 	}
 	render_todelete.clear();
 
-
+	/* DISPLAY TEXTURE ON A QUAD THAT FILLS THE SCREEN */
 	// Now to render the quad, with the texture on top
 	// Switch to the default frame buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -217,8 +242,13 @@ namespace renderer{
 	glDisable(GL_DEPTH_TEST);
 	glBindTexture(GL_TEXTURE_2D, renderTex);
 	quadShader->use();
+	quadShader->setInt("screenWidth", screenWidth);
+	quadShader->setInt("screenHeight", screenHeight);
+	quadShader->setInt("crosshairType", crosshair_type);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
+
+	debug::window::render();
     }
 
     void framebuffer_size_callback(GLFWwindow *window, int width, int height){
@@ -268,6 +298,7 @@ namespace renderer{
 
     void destroy(){
 	delete theShader;
+	delete quadShader;
     }
 
 
