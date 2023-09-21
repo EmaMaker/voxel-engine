@@ -31,12 +31,12 @@ namespace chunkmanager
 
     void init();
     void blockpick(bool place);
-    uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k);
+    int32_t calculateIndex(int16_t i, int16_t j, int16_t k);
     
     void stop();
     void destroy();
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector();
-    std::array<std::array<uint16_t, 3>, chunks_volume>& getChunksIndices();
+    std::array<std::array<int16_t, 3>, chunks_volume>& getChunksIndices();
     Block getBlockAtPos(int x, int y, int z);
     void update();
     void primary_thread_update();

@@ -119,6 +119,8 @@ namespace debug{
 			std::any_cast<int>(parameters.at("update_chunks_freed")));
 		    ImGui::Text("Bucket size: %d",
 			std::any_cast<int>(parameters.at("update_chunks_bucket")));
+		    ImGui::Text("Chunks explored: %d",
+			std::any_cast<int>(parameters.at("update_chunks_explored")));
 		}
 	    }catch(const std::bad_any_cast& e){
 		std::cout << e.what();

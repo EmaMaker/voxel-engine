@@ -8,6 +8,8 @@
 #include <oneapi/tbb.h>
 
 #include <glm/glm.hpp>
+#include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "block.hpp"
@@ -26,7 +28,7 @@ namespace chunkmanager
     // Concurrent hash table of chunks
     ChunkTable chunks;
     // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
-    std::array<std::array<uint16_t, 3>, chunks_volume> chunks_indices;
+    std::array<std::array<int16_t, 3>, chunks_volume> chunks_indices;
 
     /* Multithreading */
     std::atomic_bool should_run;
@@ -44,12 +46,11 @@ namespace chunkmanager
 	int index{0};
 	constexpr int rr{RENDER_DISTANCE * RENDER_DISTANCE};
 
-        int xp{0}, x{0};
         bool b = true;
 
-	for(int i = -RENDER_DISTANCE; i < RENDER_DISTANCE; i++)
-	    for(int j = -RENDER_DISTANCE; j < RENDER_DISTANCE; j++)
-		for(int k = -RENDER_DISTANCE; k < RENDER_DISTANCE; k++){
+	for(int16_t i = -RENDER_DISTANCE; i < RENDER_DISTANCE; i++)
+	    for(int16_t j = -RENDER_DISTANCE; j < RENDER_DISTANCE; j++)
+		for(int16_t k = -RENDER_DISTANCE; k < RENDER_DISTANCE; k++){
 
 		    chunks_indices[index][0]=i;
 		    chunks_indices[index][1]=j;
@@ -57,7 +58,6 @@ namespace chunkmanager
 		    index++;
 		}
 
-	std::cout << index << std::endl;
 	// Also init mesh data queue
 	for(int i = 0; i < 10; i++)
 	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
@@ -93,24 +93,39 @@ namespace chunkmanager
 
     oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
     int nUnloaded{0};
+    int already{0};
+    bool first{true};
     void update(){
 	while(should_run) {
 	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
+	    int explored{0};
 	    // Eventually create new chunks
 	    for(int i = 0; i < chunks_volume; i++) {
-		const uint16_t x = chunks_indices[i][0] + chunkX;
-		const uint16_t y = chunks_indices[i][1] + chunkY;
-		const uint16_t z = chunks_indices[i][2] + chunkZ;
-		const uint32_t index = calculateIndex(x, y, z);
+		const int16_t x = chunks_indices[i][0] + chunkX;
+		const int16_t y = chunks_indices[i][1] + chunkY;
+		const int16_t z = chunks_indices[i][2] + chunkZ;
 
-		if(x > 1023 || y > 1023 || z > 1023) continue;
-
-		ChunkTable::accessor a, a1, a2, b1, b2, c1, c2;
-		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
+		if(x < 0 || y < 0 || z < 0 || x > 1023 || y > 1023 || z > 1023) continue;
+		const int32_t index = calculateIndex(x, y, z);
+		explored++;
+		ChunkTable::accessor a;
+		if(chunks.count(index) == 0){
+		    chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
+		    a.release();
+		}else{
+		    if(first){
+			already++;
+			std::cout << "index already present: " << index << std::endl;
+			std::cout << x << "," << y << "," << z << "(" << chunks_indices[i][1] << std::endl;
+		    }
+		}
 	    }
+	    first= false;
+	    if(already) std::cout << "chunks already present " << already << std::endl;
+	    debug::window::set_parameter("update_chunks_explored", explored);
 
 	    debug::window::set_parameter("px", theCamera.getAtomicPosX());
 	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
@@ -136,6 +151,8 @@ namespace chunkmanager
 
 		    if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) {
 			chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
+		    }else if(a->second->getState(Chunk::CHUNK_STATE_EMPTY)){
+			continue;
 		    }else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
 			int x = a->second->getPosition().x;
 			int y = a->second->getPosition().y;
@@ -176,7 +193,9 @@ namespace chunkmanager
 		if(chunks.erase(index)){
 		    delete n;
 		    nUnloaded++;
-		}
+		}else
+		    std::cout << "failed to free chunk at" << glm::to_string(n->getPosition()) <<
+			std::endl;
 	    }
 
 	    debug::window::set_parameter("update_chunks_freed", nUnloaded);
@@ -184,12 +203,12 @@ namespace chunkmanager
     }
 
     // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
-    uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k){
+    int32_t calculateIndex(int16_t i, int16_t j, int16_t k){
 	 return i | (j << 10) | (k << 20); 
     }
 
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
-    std::array<std::array<uint16_t, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
+    std::array<std::array<int16_t, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
     void stop() {
 	should_run=false;
@@ -198,9 +217,9 @@ namespace chunkmanager
 	mesh_thread.join();
     }
     void destroy(){
-	/*for(const auto& n : chunks){
+	for(const auto& n : chunks){
 	    delete n.second;
-	}*/
+	}
     }
 
     void blockpick(bool place){
