@@ -115,8 +115,8 @@ namespace debug{
 		if(ImGui::CollapsingHeader("Chunks")){
 		    ImGui::Text("Total chunks present: %d",
 			std::any_cast<int>(parameters.at("update_chunks_total")));
-		    /*ImGui::Text("Chunks freed from memory: %d",
-			std::any_cast<int>(parameters.at("update_chunks_delete")));*/
+		    ImGui::Text("Chunks freed from memory: %d",
+			std::any_cast<int>(parameters.at("update_chunks_freed")));
 		    ImGui::Text("Bucket size: %d",
 			std::any_cast<int>(parameters.at("update_chunks_bucket")));
 		}

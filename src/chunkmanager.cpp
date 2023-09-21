@@ -5,6 +5,8 @@
 #include <vector>
 #include <thread>
 
+#include <oneapi/tbb.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -24,7 +26,7 @@ namespace chunkmanager
     // Concurrent hash table of chunks
     ChunkTable chunks;
     // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
-    std::array<std::array<int, 3>, chunks_volume> chunks_indices;
+    std::array<std::array<uint16_t, 3>, chunks_volume> chunks_indices;
 
     /* Multithreading */
     std::atomic_bool should_run;
@@ -40,45 +42,22 @@ namespace chunkmanager
     int chunks_volume_real;
     void init(){
 	int index{0};
-	int rr{RENDER_DISTANCE * RENDER_DISTANCE};
+	constexpr int rr{RENDER_DISTANCE * RENDER_DISTANCE};
 
         int xp{0}, x{0};
         bool b = true;
 
-        // Iterate over all chunks, in concentric spheres starting fron the player and going outwards. Alternate left and right
-        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
-        while (xp <= RENDER_DISTANCE)
-        {
-	    // Alternate between left and right
-            if (b) x = +xp;
-            else x = -xp;
+	for(int i = -RENDER_DISTANCE; i < RENDER_DISTANCE; i++)
+	    for(int j = -RENDER_DISTANCE; j < RENDER_DISTANCE; j++)
+		for(int k = -RENDER_DISTANCE; k < RENDER_DISTANCE; k++){
 
-	    // Step 1. At current x, get the corresponding y values (2nd degree equation, up to 2
-	    // possible results)
-            int y1 = static_cast<int>(sqrt((rr) - x*x));
-
-            for (int y = -y1 + 1 ; y <= y1; y++)
-            {
-                // Step 2. At both y's, get the corresponding z values
-		int z1 = static_cast<int>(sqrt( rr - x*x - y*y));
-
-                for (int z = -z1 + 1; z <= z1; z++){
-		    chunks_indices[index][0] = x;
-		    chunks_indices[index][1] = y;
-		    chunks_indices[index][2] = z;
+		    chunks_indices[index][0]=i;
+		    chunks_indices[index][1]=j;
+		    chunks_indices[index][2]=k;
 		    index++;
 		}
-            }
 
-            if (!b)
-            {
-                xp++;
-                b = true;
-            }
-            else  b = false;
-	}
-	chunks_volume_real = index;
-
+	std::cout << index << std::endl;
 	// Also init mesh data queue
 	for(int i = 0; i < 10; i++)
 	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
@@ -107,7 +86,6 @@ namespace chunkmanager
 		Chunk::Chunk* chunk = entry.first;
 		if(chunk->getState(Chunk::CHUNK_STATE_GENERATED)){
 		    chunkmesher::mesh(chunk);
-		    renderer::getChunksToRender().insert(chunk);
 		}
 	    }
 	}
@@ -121,6 +99,19 @@ namespace chunkmanager
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
+	    // Eventually create new chunks
+	    for(int i = 0; i < chunks_volume; i++) {
+		const uint16_t x = chunks_indices[i][0] + chunkX;
+		const uint16_t y = chunks_indices[i][1] + chunkY;
+		const uint16_t z = chunks_indices[i][2] + chunkZ;
+		const uint32_t index = calculateIndex(x, y, z);
+
+		if(x > 1023 || y > 1023 || z > 1023) continue;
+
+		ChunkTable::accessor a, a1, a2, b1, b2, c1, c2;
+		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
+	    }
+
 	    debug::window::set_parameter("px", theCamera.getAtomicPosX());
 	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
 	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
@@ -131,46 +122,49 @@ namespace chunkmanager
 	    debug::window::set_parameter("ly", theCamera.getFront().y);
 	    debug::window::set_parameter("lz", theCamera.getFront().z);
 
-	    // Update other chunks
-	    for(int i = 0; i < chunks_volume_real; i++) {
-		const uint16_t x = chunks_indices[i][0] + chunkX;
-		const uint16_t y = chunks_indices[i][1] + chunkY;
-		const uint16_t z = chunks_indices[i][2] + chunkZ;
-		const uint32_t index = calculateIndex(x, y, z);
-
-		if(x > 1023 || y > 1023 || z > 1023) continue;
-
-		ChunkTable::accessor a, a1, a2, b1, b2, c1, c2;
-		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
-
-		if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) {
-		    chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
-		}else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
-		    if(
-			    (x + 1 > 1023 || (chunks.find(a1, calculateIndex(x+1, y, z)) &&
-					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (x - 1 < 0|| (chunks.find(a1, calculateIndex(x-1, y, z)) &&
-					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (y + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y+1, z)) &&
-					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (y - 1 < 0|| (chunks.find(a1, calculateIndex(x, y-1, z)) &&
-					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (z + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y, z+1)) &&
-					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (z - 1 < 0|| (chunks.find(a1, calculateIndex(x, y, z-1)) &&
-					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED)))
-		      )
-		       chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
-		}
-
-		a.release();
-	    }
 
 	    debug::window::set_parameter("update_chunks_total", (int) (chunks.size()));
 	    debug::window::set_parameter("update_chunks_bucket", (int) (chunks.max_size()));
 
+	    // Perform needed operations on all the chunks
+	    oneapi::tbb::parallel_for(chunks.range(), [](ChunkTable::range_type &r){
+		for(ChunkTable::const_iterator a = r.begin(); a != r.end(); a++){
+		    if(a->second->getState(Chunk::CHUNK_STATE_UNLOADED)){
+			chunks_todelete.push(a->second);
+			continue;
+		    }
+
+		    if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) {
+			chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
+		    }else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
+			int x = a->second->getPosition().x;
+			int y = a->second->getPosition().y;
+			int z = a->second->getPosition().z;
+
+			ChunkTable::const_accessor a1;
+			if(
+				(x + 1 > 1023 || (chunks.find(a1, calculateIndex(x+1, y, z)) &&
+						  a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				(x - 1 < 0|| (chunks.find(a1, calculateIndex(x-1, y, z)) &&
+						  a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				(y + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y+1, z)) &&
+						  a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				(y - 1 < 0|| (chunks.find(a1, calculateIndex(x, y-1, z)) &&
+						  a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				(z + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y, z+1)) &&
+						  a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				(z - 1 < 0|| (chunks.find(a1, calculateIndex(x, y, z-1)) &&
+						  a1->second->getState(Chunk::CHUNK_STATE_GENERATED)))
+			  )
+			   chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
+		    }else{
+			renderer::getChunksToRender().insert(a->second);
+		    }
+		}
+	    });
+
 	    Chunk::Chunk* n;
-	    nUnloaded = 0;
+	    ChunkTable::accessor a;
 	    while(chunks_todelete.try_pop(n)){
 		int x = static_cast<uint16_t>(n->getPosition().x);
 		int y = static_cast<uint16_t>(n->getPosition().y);
@@ -178,10 +172,14 @@ namespace chunkmanager
 		if(x > 1023 || y > 1023 || z > 1023) continue;
 		const uint32_t index = calculateIndex(x, y, z);
 
-		chunks.erase(index);
-		//delete n;
-		nUnloaded++;
+		//std::cout << n->getState(Chunk::CHUNK_STATE_GENERATED) << "\n";
+		if(chunks.erase(index)){
+		    delete n;
+		    nUnloaded++;
+		}
 	    }
+
+	    debug::window::set_parameter("update_chunks_freed", nUnloaded);
 	}
     }
 
@@ -191,7 +189,7 @@ namespace chunkmanager
     }
 
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
-    std::array<std::array<int, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
+    std::array<std::array<uint16_t, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
     void stop() {
 	should_run=false;

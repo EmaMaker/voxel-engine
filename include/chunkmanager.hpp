@@ -36,9 +36,10 @@ namespace chunkmanager
     void stop();
     void destroy();
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector();
-    std::array<std::array<int, 3>, chunks_volume>& getChunksIndices();
+    std::array<std::array<uint16_t, 3>, chunks_volume>& getChunksIndices();
     Block getBlockAtPos(int x, int y, int z);
     void update();
+    void primary_thread_update();
 }
 
 #endif

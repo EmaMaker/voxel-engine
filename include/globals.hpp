@@ -10,10 +10,11 @@
 #define extr extern
 #endif
 
-#define RENDER_DISTANCE 16
+#define RENDER_DISTANCE 8
 
 extr Camera theCamera;
-constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
+//constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
+constexpr int chunks_volume = RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE*8;
 extr bool wireframe;
 
 extr float sines[360];

@@ -1,5 +1,8 @@
 #include "renderer.hpp"
 
+#include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
+
 #include <oneapi/tbb/concurrent_vector.h>
 #include <oneapi/tbb/concurrent_queue.h>
 
@@ -145,8 +148,11 @@ namespace renderer{
 	}
 
 	for(auto& c : chunks_torender){
-	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
-	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
+	    //float dist = glm::distance(c->getPosition(), cameraChunkPos);
+	    //if(static_cast<int>(dist) <= RENDER_DISTANCE + 1){
+	    if(abs(c->getPosition().x - cameraChunkPos.x) <= RENDER_DISTANCE &&
+		    abs(c->getPosition().y - cameraChunkPos.y) <= RENDER_DISTANCE &&
+		    abs(c->getPosition().z - cameraChunkPos.z) <= RENDER_DISTANCE){
 		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
 
 		// Increase total vertex count
@@ -204,6 +210,7 @@ namespace renderer{
 			render_todelete.push_back(c);
 		    }
 		} else{
+		    std::cout << "chunk at " << glm::to_string(c->getPosition()) << std::endl;
 		    // Mark has out of vision and annotate when it started
 		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
 		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
@@ -222,11 +229,11 @@ namespace renderer{
 	debug::window::set_parameter("render_chunks_vertices", vertices);
 
 	for(auto& c : render_todelete){
+	    c->deleteBuffers();
 	    // we can get away with unsafe erase as access to the container is only done by this
 	    // thread
-	    c->deleteBuffers();
 	    chunks_torender.unsafe_erase(c);
-	    chunkmanager::getDeleteVector().push(c);
+	    c->setState(Chunk::CHUNK_STATE_UNLOADED, true);
 	}
 	render_todelete.clear();
 
