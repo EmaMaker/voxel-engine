@@ -18,6 +18,10 @@ public:
 
 	// This matrix needs to be also updated in viewPortCallback whenever it is changed
         projection = glm::perspective(glm::radians(90.0f), 800.0f / 600.0f, 0.1f, 1200.0f);
+
+	posX = cameraPos.x;
+	posY = cameraPos.y;
+	posZ = cameraPos.z;
     }
 
     void update(GLFWwindow *window, float deltaTime)
@@ -112,7 +116,7 @@ public:
 
 
 private:
-    glm::vec3 cameraPos = glm::vec3(256.0, 80.0f, 256.0f);
+    glm::vec3 cameraPos = glm::vec3(512.0, 80.0f, 512.0f);
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.0f);
