@@ -150,9 +150,12 @@ namespace renderer{
 	for(auto& c : chunks_torender){
 	    //float dist = glm::distance(c->getPosition(), cameraChunkPos);
 	    //if(static_cast<int>(dist) <= RENDER_DISTANCE + 1){
-	    if(abs(c->getPosition().x - cameraChunkPos.x) <= RENDER_DISTANCE &&
-		    abs(c->getPosition().y - cameraChunkPos.y) <= RENDER_DISTANCE &&
-		    abs(c->getPosition().z - cameraChunkPos.z) <= RENDER_DISTANCE){
+	    int distx = c->getPosition().x - cameraChunkPos.x;
+	    int disty = c->getPosition().y - cameraChunkPos.y;
+	    int distz = c->getPosition().z - cameraChunkPos.z;
+	    if(distx >= -RENDER_DISTANCE && distx < RENDER_DISTANCE &&
+		    disty >= -RENDER_DISTANCE && disty < RENDER_DISTANCE &&
+		    distz >= -RENDER_DISTANCE && distz < RENDER_DISTANCE){
 		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
 
 		// Increase total vertex count
@@ -210,7 +213,6 @@ namespace renderer{
 			render_todelete.push_back(c);
 		    }
 		} else{
-		    std::cout << "chunk at " << glm::to_string(c->getPosition()) << std::endl;
 		    // Mark has out of vision and annotate when it started
 		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
 		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
