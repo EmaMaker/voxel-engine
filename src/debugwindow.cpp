@@ -117,8 +117,6 @@ namespace debug{
 			std::any_cast<int>(parameters.at("update_chunks_total")));
 		    ImGui::Text("Chunks freed from memory: %d",
 			std::any_cast<int>(parameters.at("update_chunks_freed")));
-		    ImGui::Text("Bucket size: %d",
-			std::any_cast<int>(parameters.at("update_chunks_bucket")));
 		    ImGui::Text("Chunks explored: %d",
 			std::any_cast<int>(parameters.at("update_chunks_explored")));
 		}

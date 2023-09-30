@@ -11,7 +11,7 @@
 #include "globals.hpp"
 
 // Seconds to be passed outside of render distance for a chunk to be destroyed
-#define UNLOAD_TIMEOUT 10
+#define UNLOAD_TIMEOUT 0
 
 #define	MESHING_PRIORITY_NORMAL 0
 #define MESHING_PRIORITY_PLAYER_EDIT 10

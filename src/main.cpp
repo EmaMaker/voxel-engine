@@ -106,6 +106,8 @@ int main()
 	// Render pass
 	renderer::render();
 
+	chunkmanager::primary_thread_update();
+
         // Swap buffers to avoid tearing
         glfwSwapBuffers(window);
         glfwPollEvents();

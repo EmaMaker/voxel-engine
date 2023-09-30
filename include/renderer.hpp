@@ -9,7 +9,8 @@
 #include "shader.hpp"
 
 namespace renderer{
-    typedef oneapi::tbb::concurrent_unordered_set<Chunk::Chunk*> RenderSet;
+    //typedef oneapi::tbb::concurrent_unordered_set<Chunk::Chunk*> RenderSet;
+    typedef oneapi::tbb::concurrent_queue<Chunk::Chunk*> RenderQueue;
 
     void init(GLFWwindow* window);
     void render();
@@ -20,7 +21,7 @@ namespace renderer{
     void saveScreenshot(bool forceFullHD=false);
 
     Shader* getRenderShader();
-    RenderSet& getChunksToRender();
+    RenderQueue& getChunksToRender();
     oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue();
 
 };
