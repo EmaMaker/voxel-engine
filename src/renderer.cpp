@@ -148,7 +148,7 @@ namespace renderer{
 
 	Chunk::Chunk* c;
 	while(chunks_torender.try_pop(c)){
-	    if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
+	    if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) goto end;
 	    
 	    total++;
 
@@ -192,6 +192,9 @@ namespace renderer{
 		    toGpu++;
 		}
 	    }
+
+end:
+	    c->setState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE, false);
 	}
 
 	debug::window::set_parameter("render_chunks_total", total);

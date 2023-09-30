@@ -22,10 +22,6 @@ namespace Chunk
 	this->setBlocks(0, CHUNK_MAX_INDEX, Block::AIR);
     }
 
-    Chunk ::~Chunk()
-    {
-    }
-
     void Chunk::createBuffers(){
 	glGenVertexArrays(1, &(this->VAO));
 	glGenBuffers(1, &(this->VBO));
@@ -59,7 +55,7 @@ namespace Chunk
         this->blocks.insert(start < 0 ? 0 : start, end >= CHUNK_VOLUME ? CHUNK_VOLUME : end, b);
     }
 
-    void Chunk::setState(uint8_t nstate, bool value)
+    void Chunk::setState(uint16_t nstate, bool value)
     {
         if (value)
 	    this->state.fetch_or(nstate);

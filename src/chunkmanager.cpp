@@ -4,7 +4,7 @@
 
 #include <atomic>
 #include <math.h>
-#include <vector>
+#include <queue>
 #include <thread>
 
 #include <glm/glm.hpp>
@@ -39,6 +39,11 @@ namespace chunkmanager
     ChunkPriorityQueue chunks_to_mesh_queue;
 
     int block_to_place{2};
+    
+    // MEMORYTEST
+    bool populated{false};
+    bool populated2{false};
+    float start_time{0};
 
     // Init chunkmanager. Chunk indices and start threads
     int chunks_volume_real;
@@ -68,14 +73,21 @@ namespace chunkmanager
 	mesh_thread = std::thread(mesh);
 
 	debug::window::set_parameter("block_type_return", &block_to_place);
+
+	// MEMORYTEST
+	start_time = glfwGetTime();
     }
 
     // Method for world generation thread(s)
     void generate(){
 	while(should_run){
 	    ChunkPQEntry entry;
-	    while(chunks_to_generate_queue.try_pop(entry)) generateChunk(entry.first);
+	    if(chunks_to_generate_queue.try_pop(entry)){
+		generateChunk(entry.first);
+		entry.first->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, false);
+	    }
 	}
+	chunks_to_generate_queue.clear();
     }
 
     // Method for chunk meshing thread(s)
@@ -86,144 +98,119 @@ namespace chunkmanager
 		Chunk::Chunk* chunk = entry.first;
 		if(chunk->getState(Chunk::CHUNK_STATE_GENERATED)){
 		    chunkmesher::mesh(chunk);
+		entry.first->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, false);
 		}
 	    }
 	}
+	chunks_to_mesh_queue.clear();
     }
 
-    oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
-    oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_primary_delete;
     int nUnloaded{0};
-    int already{0};
-    bool first{true};
-    void update(){
-    }
 
+    std::queue<int32_t> chunks_todelete;
     void primary_thread_update(){
+	int nExplored{0}, nMeshed{0}, nGenerated{0};
 	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
-	    int explored{0};
-	    // Eventually create new chunks
+	    debug::window::set_parameter("update_chunks_tobedeleted", (int) chunks_todelete.size());
+	    while(!chunks_todelete.empty()){
+		int a = chunks_todelete.front();
+		auto i = chunks.find(a);
+		if(chunks.erase(a)){
+		    delete i->second;
+		    nUnloaded++;
+		}
+		else
+		std::cout << "no such element found to delete\n";
+		chunks_todelete.pop();
+		
+	    }
+	    // Eventually create new chunks near the player
 	    for(int i = 0; i < chunks_volume; i++) {
 		const int16_t x = chunks_indices[i][0] + chunkX;
 		const int16_t y = chunks_indices[i][1] + chunkY;
 		const int16_t z = chunks_indices[i][2] + chunkZ;
 
 		if(x < 0 || y < 0 || z < 0 || x > 1023 || y > 1023 || z > 1023) continue;
+		nExplored++;
+
+
 		const int32_t index = calculateIndex(x, y, z);
-		explored++;
-		ChunkTable::accessor a;
-		if(chunks.count(index) == 0){
-		    chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
-		    a.release();
-		}else{
-		    if(first){
-			already++;
-			std::cout << "index already present: " << index << std::endl;
-			std::cout << x << "," << y << "," << z << "(" << chunks_indices[i][1] << std::endl;
-		    }
-		}
+		if(chunks.find(index) == chunks.end()) chunks.emplace(std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
 	    }
-	    first= false;
-	    if(already) std::cout << "chunks already present " << already << std::endl;
-	    debug::window::set_parameter("update_chunks_explored", explored);
 
-	    debug::window::set_parameter("px", theCamera.getAtomicPosX());
-	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
-	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
-	    debug::window::set_parameter("cx", chunkX);
-	    debug::window::set_parameter("cy", chunkY);
-	    debug::window::set_parameter("cz", chunkZ);
-	    debug::window::set_parameter("lx", theCamera.getFront().x);
-	    debug::window::set_parameter("ly", theCamera.getFront().y);
-	    debug::window::set_parameter("lz", theCamera.getFront().z);
+	    for(auto a = chunks.begin(); a != chunks.end(); a++){
+		Chunk::Chunk* c = a->second;
 
+		int x = c->getPosition().x;
+		int y = c->getPosition().y;
+		int z = c->getPosition().z;
+		int distx = x - chunkX;
+		int disty = y - chunkY;
+		int distz = z - chunkZ;
 
-	    debug::window::set_parameter("update_chunks_total", (int) (chunks.size()));
+		if(
+			distx >= -RENDER_DISTANCE && distx <= RENDER_DISTANCE &&
+			disty >= -RENDER_DISTANCE && disty <= RENDER_DISTANCE &&
+			distz >= -RENDER_DISTANCE && distz <= RENDER_DISTANCE
+		  ){
 
-	    // Perform needed operations on all the chunks
-	    oneapi::tbb::parallel_for(chunks.range(), [=](ChunkTable::range_type &r){
-		for(ChunkTable::const_iterator a = r.begin(); a != r.end(); a++){
-		    if(a->second->getState(Chunk::CHUNK_STATE_UNLOADED)){
-			if(a->second->getState(Chunk::CHUNK_STATE_MESH_LOADED)) chunks_todelete.push(a->second);
-			//nUnloaded++;
-			continue;
-		    }
+		    // If within distance
+		    // Reset out-of-view flags
+		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
+		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
 
-		    int distx = a->second->getPosition().x - chunkX;
-		    int disty = a->second->getPosition().y - chunkY;
-		    int distz = a->second->getPosition().z - chunkZ;
-		    if(distx >= -RENDER_DISTANCE && distx < RENDER_DISTANCE &&
-			disty >= -RENDER_DISTANCE && disty < RENDER_DISTANCE &&
-			distz >= -RENDER_DISTANCE && distz < RENDER_DISTANCE){
-
-			// reset out-of-vision and unload flags
-			a->second->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
-			a->second->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-
-			if(! (a->second->getState(Chunk::CHUNK_STATE_GENERATED))) {
-			    chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
-			}else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
-			    int x = a->second->getPosition().x;
-			    int y = a->second->getPosition().y;
-			    int z = a->second->getPosition().z;
-
-			    ChunkTable::const_accessor a1;
-			    if(
-				    (x + 1 > 1023 || (chunks.find(a1, calculateIndex(x+1, y, z)) &&
-						      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-				    (x - 1 < 0|| (chunks.find(a1, calculateIndex(x-1, y, z)) &&
-						      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-				    (y + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y+1, z)) &&
-						      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-				    (y - 1 < 0|| (chunks.find(a1, calculateIndex(x, y-1, z)) &&
-						      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-				    (z + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y, z+1)) &&
-						      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-				    (z - 1 < 0|| (chunks.find(a1, calculateIndex(x, y, z-1)) &&
-						      a1->second->getState(Chunk::CHUNK_STATE_GENERATED)))
-			      )
-			       chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
-			}else{
-			    renderer::getChunksToRender().push(a->second);
+		    // If not yet generated
+		    if(!c->getState(Chunk::CHUNK_STATE_GENERATED)){
+			if(!c->getState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE)){
+			    // Generate
+			    chunks_to_generate_queue.push(std::make_pair(c, GENERATION_PRIORITY_NORMAL));
+			    c->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, true);
 			}
 		    }else{
-			if(a->second->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
-			    // If chunk was already out and enough time has passed
-			    if(glfwGetTime() - a->second->unload_timer > UNLOAD_TIMEOUT){
-				// Mark the chunk to be unloaded
-				a->second->setState(Chunk::CHUNK_STATE_UNLOADED, true);
+			nGenerated++;
+			// If generated but not yet meshed
+			// TODO: not getting meshed
+			if(!c->getState(Chunk::CHUNK_STATE_MESHED)){
+			    if(!c->getState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE)){
+				// Mesh
+				chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
+				c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
 			    }
-			} else{
-			    // Mark has out of vision and annotate when it started
-			    a->second->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
-			    a->second->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-			    a->second->unload_timer = glfwGetTime();
+			}else{
+			    nMeshed++;
+			    // If generated & meshed, render
+			    /*if(!c->getState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE)){
+				renderer::getChunksToRender().push(c);
+				c->setState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE, true);
+			    }*/
 			}
 		    }
+
+		}else{
+		    // If not within distance
+		    if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
+			// If enough time has passed, set to be deleted
+			if(glfwGetTime() - c->unload_timer >= UNLOAD_TIMEOUT){
+			    chunks_todelete.push(calculateIndex(x,y,z));
+			}
+		    }else{
+			// Mark as out of view, and start waiting time
+			c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
+			c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+			c->unload_timer = glfwGetTime();
+		    }
 		}
-	    });
-
-	    Chunk::Chunk* n;
-	    ChunkTable::accessor a;
-	    while(chunks_todelete.try_pop(n)){
-		int x = static_cast<uint16_t>(n->getPosition().x);
-		int y = static_cast<uint16_t>(n->getPosition().y);
-		int z = static_cast<uint16_t>(n->getPosition().z);
-		if(x > 1023 || y > 1023 || z > 1023) continue;
-		const uint32_t index = calculateIndex(x, y, z);
-
-		//std::cout << n->getState(Chunk::CHUNK_STATE_GENERATED) << "\n";
-		if(chunks.erase(index)){
-		    //n->deleteBuffers();
-		    delete n;
-		}else
-		    std::cout << "failed to free chunk at" << glm::to_string(n->getPosition()) <<
-			std::endl;
 	    }
+
+	    debug::window::set_parameter("update_chunks_total", (int) chunks.size());
+	    debug::window::set_parameter("update_chunks_buckets", (int) chunks.bucket_count());
 	    debug::window::set_parameter("update_chunks_freed", nUnloaded);
+	    debug::window::set_parameter("update_chunks_generated", nGenerated);
+	    debug::window::set_parameter("update_chunks_meshed", nMeshed);
+	    debug::window::set_parameter("update_chunks_explored", nExplored);
     }
 
     // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
@@ -231,18 +218,23 @@ namespace chunkmanager
 	 return i | (j << 10) | (k << 20); 
     }
 
-    oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
     std::array<std::array<int16_t, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
     void stop() {
 	should_run=false;
-	//update_thread.join();
+
+	std::cout << "waiting for secondary threads to finish\n";
 	gen_thread.join();
+	std::cout << "generation thread terminated\n";
 	mesh_thread.join();
+	std::cout << "meshing thread terminated\n";
+
     }
+
     void destroy(){
     }
 
+	/*
     void blockpick(bool place){
 	// cast a ray from the camera in the direction pointed by the camera itself
 	glm::vec3 pos = glm::vec3(theCamera.getAtomicPosX(), theCamera.getAtomicPosY(),
@@ -360,5 +352,5 @@ namespace chunkmanager
 	    //std::cout << "Block is at " << bx << "," << by << "," << bz << "(" << (int)b << ")\n";
 	    return b;
 	}
-    }
+    }*/
 };

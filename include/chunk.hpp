@@ -23,13 +23,16 @@
 namespace Chunk
 {
 
-    constexpr uint8_t CHUNK_STATE_GENERATED = 1;
-    constexpr uint8_t CHUNK_STATE_MESHED = 2;
-    constexpr uint8_t CHUNK_STATE_MESH_LOADED = 4;
-    constexpr uint8_t CHUNK_STATE_LOADED = 8;
-    constexpr uint8_t CHUNK_STATE_OUTOFVISION = 16;
-    constexpr uint8_t CHUNK_STATE_UNLOADED = 32;
-    constexpr uint8_t CHUNK_STATE_EMPTY = 64;
+    constexpr uint16_t CHUNK_STATE_GENERATED = 1;
+    constexpr uint16_t CHUNK_STATE_MESHED = 2;
+    constexpr uint16_t CHUNK_STATE_MESH_LOADED = 4;
+    constexpr uint16_t CHUNK_STATE_LOADED = 8;
+    constexpr uint16_t CHUNK_STATE_OUTOFVISION = 16;
+    constexpr uint16_t CHUNK_STATE_UNLOADED = 32;
+    constexpr uint16_t CHUNK_STATE_EMPTY = 64;
+    constexpr uint16_t CHUNK_STATE_IN_GENERATION_QUEUE = 128;
+    constexpr uint16_t CHUNK_STATE_IN_MESHING_QUEUE = 256;
+    constexpr uint16_t CHUNK_STATE_IN_RENDERING_QUEUE = 512;
 
     int coord3DTo1D(int x, int y, int z);
 
@@ -38,16 +41,15 @@ namespace Chunk
 
     public:
         Chunk(glm::vec3 pos = glm::vec3(0.0f)); // a default value for the argument satisfies the need for a default constructor when using the type in an unordered_map (i.e. in chunkmanager)
-        ~Chunk();
 
     public:
 	void createBuffers();
 	void deleteBuffers();
 
         glm::vec3 getPosition() { return this->position; }
-        uint8_t getTotalState() { return this->state; }
-        bool getState(uint8_t n) { return (this->state & n) == n; }
-        void setState(uint8_t nstate, bool value);
+        uint16_t getTotalState() { return this->state; }
+        bool getState(uint16_t n) { return (this->state & n) == n; }
+        void setState(uint16_t nstate, bool value);
 
         void setBlock(Block b, int x, int y, int z);
         void setBlocks(int start, int end, Block b);
@@ -63,7 +65,7 @@ namespace Chunk
         glm::vec3 position{};
         IntervalMap<Block> blocks{};
         
-	std::atomic_uint8_t state{0};
+	std::atomic_uint16_t state{0};
     };
 };
 

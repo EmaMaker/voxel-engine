@@ -103,10 +103,10 @@ int main()
 	// Reset blockping timeout if 200ms have passed
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
+	chunkmanager::primary_thread_update();
+
 	// Render pass
 	renderer::render();
-
-	chunkmanager::primary_thread_update();
 
         // Swap buffers to avoid tearing
         glfwSwapBuffers(window);
@@ -117,9 +117,9 @@ int main()
     chunkmanager::stop();
 
     // Cleanup allocated memory
-    chunkmanager::destroy();
-    renderer::destroy();
     debug::window::destroy();
+    renderer::destroy();
+    chunkmanager::destroy();
 
     glfwTerminate();
     return 0;
@@ -143,13 +143,13 @@ void processInput(GLFWwindow *window)
         glfwSetWindowShouldClose(window, true);
 
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && !blockpick){
-	chunkmanager::blockpick(false);
+	//chunkmanager::blockpick(false);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
 
     if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !blockpick){
-	chunkmanager::blockpick(true);
+	//chunkmanager::blockpick(true);
 	blockpick=true;
 	lastBlockPick=glfwGetTime();
     }
