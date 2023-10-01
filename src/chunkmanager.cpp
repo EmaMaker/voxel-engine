@@ -68,7 +68,7 @@ namespace chunkmanager
 	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
 
 	should_run = true;
-	//update_thread = std::thread(update);
+	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
 	mesh_thread = std::thread(mesh);
 
@@ -108,8 +108,10 @@ namespace chunkmanager
     int nUnloaded{0};
 
     std::queue<int32_t> chunks_todelete;
-    void primary_thread_update(){
-	int nExplored{0}, nMeshed{0}, nGenerated{0};
+    void update(){
+	while(should_run) {
+
+	    int nExplored{0}, nMeshed{0}, nGenerated{0};
 	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
@@ -211,6 +213,7 @@ namespace chunkmanager
 	    debug::window::set_parameter("update_chunks_generated", nGenerated);
 	    debug::window::set_parameter("update_chunks_meshed", nMeshed);
 	    debug::window::set_parameter("update_chunks_explored", nExplored);
+	}
     }
 
     // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
@@ -224,6 +227,8 @@ namespace chunkmanager
 	should_run=false;
 
 	std::cout << "waiting for secondary threads to finish\n";
+	update_thread.join();
+	std::cout << "update thread terminated\n";
 	gen_thread.join();
 	std::cout << "generation thread terminated\n";
 	mesh_thread.join();

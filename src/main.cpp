@@ -103,7 +103,7 @@ int main()
 	// Reset blockping timeout if 200ms have passed
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
 
-	chunkmanager::primary_thread_update();
+	//chunkmanager::primary_thread_update();
 
 	// Render pass
 	renderer::render();
