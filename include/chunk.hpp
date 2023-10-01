@@ -47,9 +47,11 @@ namespace Chunk
 	void deleteBuffers();
 
         glm::vec3 getPosition() { return this->position; }
-        uint16_t getTotalState() { return this->state; }
-        bool getState(uint16_t n) { return (this->state & n) == n; }
         void setState(uint16_t nstate, bool value);
+	uint16_t getTotalState() { return this->state; }
+        bool getState(uint16_t n) { return (this->state & n) == n; }
+	bool isFree(){ return !(getState(CHUNK_STATE_IN_GENERATION_QUEUE) ||
+		getState(CHUNK_STATE_IN_MESHING_QUEUE)); }
 
         void setBlock(Block b, int x, int y, int z);
         void setBlocks(int start, int end, Block b);

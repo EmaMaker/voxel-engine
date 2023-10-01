@@ -21,8 +21,10 @@
 
 namespace chunkmanager
 {
-    //typedef oneapi::tbb::concurrent_hash_map<uint32_t, Chunk::Chunk*> ChunkTable;
-    typedef std::unordered_map<int32_t, Chunk::Chunk*> ChunkTable;
+    typedef oneapi::tbb::concurrent_hash_map<uint32_t, Chunk::Chunk*> ChunkTable;
+    typedef oneapi::tbb::concurrent_queue<int> IntQueue;
+
+    //typedef std::unordered_map<int32_t, Chunk::Chunk*> ChunkTable;
     typedef std::pair<Chunk::Chunk*, uint8_t> ChunkPQEntry;
     // The comparing function to use
     struct compare_f {
@@ -38,7 +40,6 @@ namespace chunkmanager
     
     void stop();
     void destroy();
-    oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector();
     std::array<std::array<int16_t, 3>, chunks_volume>& getChunksIndices();
     Block getBlockAtPos(int x, int y, int z);
     void update();

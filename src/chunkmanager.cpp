@@ -27,6 +27,8 @@ namespace chunkmanager
 
     // Concurrent hash table of chunks
     ChunkTable chunks;
+    // Concurrent queue for chunks to be deleted
+    IntQueue chunks_todelete;
     // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
     std::array<std::array<int16_t, 3>, chunks_volume> chunks_indices;
 
@@ -40,13 +42,7 @@ namespace chunkmanager
 
     int block_to_place{2};
     
-    // MEMORYTEST
-    bool populated{false};
-    bool populated2{false};
-    float start_time{0};
-
     // Init chunkmanager. Chunk indices and start threads
-    int chunks_volume_real;
     void init(){
 	int index{0};
 	constexpr int rr{RENDER_DISTANCE * RENDER_DISTANCE};
@@ -73,9 +69,6 @@ namespace chunkmanager
 	mesh_thread = std::thread(mesh);
 
 	debug::window::set_parameter("block_type_return", &block_to_place);
-
-	// MEMORYTEST
-	start_time = glfwGetTime();
     }
 
     // Method for world generation thread(s)
@@ -96,39 +89,34 @@ namespace chunkmanager
 	    ChunkPQEntry entry;
 	    if(chunks_to_mesh_queue.try_pop(entry)){
 		Chunk::Chunk* chunk = entry.first;
-		if(chunk->getState(Chunk::CHUNK_STATE_GENERATED)){
-		    chunkmesher::mesh(chunk);
-		entry.first->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, false);
-		}
+		chunkmesher::mesh(chunk);
+		chunk->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, false);
 	    }
 	}
 	chunks_to_mesh_queue.clear();
     }
 
-    int nUnloaded{0};
-
-    std::queue<int32_t> chunks_todelete;
     void update(){
 	while(should_run) {
+	    std::atomic_int nUnloaded{0}, nMarkUnload{0}, nExplored{0}, nMeshed{0}, nGenerated{0};
+	    std::atomic_int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
+	    std::atomic_int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
+	    std::atomic_int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
-	    int nExplored{0}, nMeshed{0}, nGenerated{0};
-	    int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
-	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
-	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
-
-	    debug::window::set_parameter("update_chunks_tobedeleted", (int) chunks_todelete.size());
-	    while(!chunks_todelete.empty()){
-		int a = chunks_todelete.front();
-		auto i = chunks.find(a);
-		if(chunks.erase(a)){
-		    delete i->second;
-		    nUnloaded++;
-		}
-		else
-		std::cout << "no such element found to delete\n";
-		chunks_todelete.pop();
-		
+	    // Eventually delete old chunks
+	    int i;
+	    ChunkTable::accessor a;
+	    while(chunks_todelete.try_pop(i)){
+		const int index = i;
+		if(chunks.find(a, index)){
+		    Chunk::Chunk* c = a->second;
+		    if(chunks.erase(a)){
+			nUnloaded++;
+			delete c;
+		    } else std::cout << "failed to delete " << index << std::endl;
+		} else std::cout << "no such element found to delete\n";
 	    }
+
 	    // Eventually create new chunks near the player
 	    for(int i = 0; i < chunks_volume; i++) {
 		const int16_t x = chunks_indices[i][0] + chunkX;
@@ -138,74 +126,98 @@ namespace chunkmanager
 		if(x < 0 || y < 0 || z < 0 || x > 1023 || y > 1023 || z > 1023) continue;
 		nExplored++;
 
-
 		const int32_t index = calculateIndex(x, y, z);
-		if(chunks.find(index) == chunks.end()) chunks.emplace(std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
+		ChunkTable::accessor a;
+		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new
+			    Chunk::Chunk(glm::vec3(x,y,z))));
 	    }
 
-	    for(auto a = chunks.begin(); a != chunks.end(); a++){
-		Chunk::Chunk* c = a->second;
+	    // Now update all the chunks
+	    oneapi::tbb::parallel_for(chunks.range(), [&](ChunkTable::range_type &r){
+		for(ChunkTable::iterator a = r.begin(); a != r.end(); a++){
+		    Chunk::Chunk* c = a->second;
 
-		int x = c->getPosition().x;
-		int y = c->getPosition().y;
-		int z = c->getPosition().z;
-		int distx = x - chunkX;
-		int disty = y - chunkY;
-		int distz = z - chunkZ;
+		    int x = c->getPosition().x;
+		    int y = c->getPosition().y;
+		    int z = c->getPosition().z;
+		    int distx = x - chunkX;
+		    int disty = y - chunkY;
+		    int distz = z - chunkZ;
 
-		if(
-			distx >= -RENDER_DISTANCE && distx <= RENDER_DISTANCE &&
-			disty >= -RENDER_DISTANCE && disty <= RENDER_DISTANCE &&
-			distz >= -RENDER_DISTANCE && distz <= RENDER_DISTANCE
-		  ){
+		    int gen{0}, mesh{0}, unload{0};
 
-		    // If within distance
-		    // Reset out-of-view flags
-		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
-		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+		    if(
+			    distx >= -RENDER_DISTANCE && distx <= RENDER_DISTANCE &&
+			    disty >= -RENDER_DISTANCE && disty <= RENDER_DISTANCE &&
+			    distz >= -RENDER_DISTANCE && distz <= RENDER_DISTANCE
+		      ){
 
-		    // If not yet generated
-		    if(!c->getState(Chunk::CHUNK_STATE_GENERATED)){
-			if(!c->getState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE)){
-			    // Generate
-			    chunks_to_generate_queue.push(std::make_pair(c, GENERATION_PRIORITY_NORMAL));
-			    c->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, true);
-			}
-		    }else{
-			nGenerated++;
-			// If generated but not yet meshed
-			// TODO: not getting meshed
-			if(!c->getState(Chunk::CHUNK_STATE_MESHED)){
-			    if(!c->getState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE)){
-				// Mesh
-				chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
-				c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
+			// If within distance
+			// Reset out-of-view flags
+			c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
+			c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+
+			// If not yet generated
+			if(!c->getState(Chunk::CHUNK_STATE_GENERATED)){
+			    if(!c->getState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE)){
+				// Generate
+				chunks_to_generate_queue.push(std::make_pair(c, GENERATION_PRIORITY_NORMAL));
+				c->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, true);
 			    }
 			}else{
-			    nMeshed++;
-			    // If generated & meshed, render
-			    /*if(!c->getState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE)){
-				renderer::getChunksToRender().push(c);
-				c->setState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE, true);
-			    }*/
+			    gen++;
+			    // If generated but not yet meshed
+			    // TODO: not getting meshed
+			    if(!c->getState(Chunk::CHUNK_STATE_MESHED)){
+				if(!c->getState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE)){
+				    // Mesh
+				    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
+				    c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
+				}
+			    }else{
+				mesh++;
+				// If generated & meshed, render
+				/*if(!c->getState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE)){
+				    renderer::getChunksToRender().push(c);
+				    c->setState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE, true);
+				}*/
+			    }
+			}
+
+		    }else{
+			// If not within distance
+			if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
+			    // If enough time has passed, set to be deleted
+			    if(c->isFree() && glfwGetTime() - c->unload_timer >= UNLOAD_TIMEOUT){
+				chunks_todelete.push(calculateIndex(x,y,z));
+				unload++;
+			    }
+			}else{
+			    // Mark as out of view, and start waiting time
+			    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
+			    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+			    c->unload_timer = glfwGetTime();
 			}
 		    }
 
-		}else{
-		    // If not within distance
-		    if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
-			// If enough time has passed, set to be deleted
-			if(glfwGetTime() - c->unload_timer >= UNLOAD_TIMEOUT){
-			    chunks_todelete.push(calculateIndex(x,y,z));
-			}
-		    }else{
-			// Mark as out of view, and start waiting time
-			c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
-			c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-			c->unload_timer = glfwGetTime();
-		    }
+		    nGenerated += gen;
+		    nMeshed += mesh;
+		    nMarkUnload += unload;
 		}
-	    }
+	    });
+
+
+	    std::cout << "time: " << glfwGetTime() << "\ntotal: " << chunks.size() << "\ngenerated: " << nGenerated << "\nmeshed: "
+		<< nMeshed << "\nunloaded from prev loop: " << nUnloaded << "\nnew marked for unload: " << nMarkUnload << std::endl;
+	    /*debug::window::set_parameter("px", theCamera.getAtomicPosX());
+	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
+	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
+	    debug::window::set_parameter("cx", chunkX);
+	    debug::window::set_parameter("cy", chunkY);
+	    debug::window::set_parameter("cz", chunkZ);
+	    debug::window::set_parameter("lx", theCamera.getFront().x);
+	    debug::window::set_parameter("ly", theCamera.getFront().y);
+	    debug::window::set_parameter("lz", theCamera.getFront().z);
 
 	    debug::window::set_parameter("update_chunks_total", (int) chunks.size());
 	    debug::window::set_parameter("update_chunks_buckets", (int) chunks.bucket_count());
@@ -213,6 +225,7 @@ namespace chunkmanager
 	    debug::window::set_parameter("update_chunks_generated", nGenerated);
 	    debug::window::set_parameter("update_chunks_meshed", nMeshed);
 	    debug::window::set_parameter("update_chunks_explored", nExplored);
+	    debug::window::set_parameter("update_chunks_tobedeleted", 0);*/
 	}
     }
 
