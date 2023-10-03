@@ -22,15 +22,21 @@
 
 namespace chunkmanager
 {
+    void blockpick(WorldUpdateMsg& msg); // There's no need of passing by value again (check
+					 // controls.cpp)
     void generate();
     void mesh();
 
+    /* Chunk holding data structures */
     // Concurrent hash table of chunks
     ChunkTable chunks;
     // Concurrent queue for chunks to be deleted
     IntQueue chunks_todelete;
     // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
     std::array<std::array<int16_t, 3>, chunks_volume> chunks_indices;
+
+    /* World Update messaging data structure */
+    WorldUpdateMsgQueue WorldUpdateQueue;
 
     /* Multithreading */
     std::atomic_bool should_run;
@@ -40,7 +46,10 @@ namespace chunkmanager
     // Queue of chunks to be meshed
     ChunkPriorityQueue chunks_to_mesh_queue;
 
+    /* Block picking */
     int block_to_place{2};
+
+    WorldUpdateMsgQueue& getWorldUpdateQueue(){ return WorldUpdateQueue; }
     
     // Init chunkmanager. Chunk indices and start threads
     void init(){
@@ -94,10 +103,24 @@ namespace chunkmanager
 
     void update(){
 	while(should_run) {
+	    // Setup variables for the whole loop
+	    // Atomic is needed by parallel_for
 	    std::atomic_int nUnloaded{0}, nMarkUnload{0}, nExplored{0}, nMeshed{0}, nGenerated{0};
 	    std::atomic_int chunkX=static_cast<int>(theCamera.getAtomicPosX() / CHUNK_SIZE);
 	    std::atomic_int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    std::atomic_int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
+
+	    /* Process update messages before anything happens */
+	    WorldUpdateMsg msg;
+	    while(WorldUpdateQueue.try_pop(msg)){
+		switch(msg.msg_type){
+		    case WorldUpdateMsgType::BLOCKPICK_BREAK:
+		    case WorldUpdateMsgType::BLOCKPICK_PLACE:
+			blockpick(msg);
+			break;
+		}
+	    }
+
 
 	    // Eventually delete old chunks
 	    int i;
@@ -225,14 +248,12 @@ namespace chunkmanager
     void destroy(){
     }
 
-	/*
-    void blockpick(bool place){
+    void blockpick(WorldUpdateMsg& msg){
 	// cast a ray from the camera in the direction pointed by the camera itself
-	glm::vec3 pos = glm::vec3(theCamera.getAtomicPosX(), theCamera.getAtomicPosY(),
-		theCamera.getAtomicPosZ());
+	glm::vec3 pos = msg.cameraPos;
 	for(float t = 0.0; t <= 10.0; t += 0.5){
 	    // traverse the ray a block at the time
-	    pos = theCamera.getPos() + t * theCamera.getFront();
+	    pos = msg.cameraPos + t*msg.cameraFront;
 
 	    // get which chunk and block the ray is at
 	    int px = ((int)(pos.x))/CHUNK_SIZE;
@@ -246,7 +267,7 @@ namespace chunkmanager
 	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) continue;
 
 	    ChunkTable::accessor a;
-	    if(!chunks.find(a, calculateIndex(px, py, pz))) continue;
+	    if(!chunks.find(a, Chunk::calculateIndex(px, py, pz))) continue;
 	    Chunk::Chunk* c = a->second;
 	    if(!c->getState(Chunk::CHUNK_STATE_GENERATED) || c->getState(Chunk::CHUNK_STATE_EMPTY)) continue;
 
@@ -257,7 +278,7 @@ namespace chunkmanager
 	    if(b != Block::AIR){
 
 		// if placing a new block
-		if(place){
+		if(msg.msg_type == WorldUpdateMsgType::BLOCKPICK_PLACE){
 		    // Go half a block backwards on the ray, to check the block where the ray was
 		    // coming from
 		    // Doing this and not using normal adds the unexpected (and unwanted) ability to
@@ -275,7 +296,7 @@ namespace chunkmanager
 		    // exit early if the position is invalid or the chunk does not exist
 		    if(px1 < 0 || py1 < 0 || pz1 < 0 || px1 >= 1024 || py1 >= 1024 || pz1 >= 1024) return;
 		    ChunkTable::accessor a1;
-		    if(!chunks.find(a1, calculateIndex(px1, py1, pz1))) return;
+		    if(!chunks.find(a1, Chunk::calculateIndex(px1, py1, pz1))) return;
 		    Chunk::Chunk* c1 = a1->second;
 		    // place the new block (only stone for now)
 		    c1->setBlock((Block)block_to_place, bx1, by1, bz1);
@@ -284,8 +305,9 @@ namespace chunkmanager
 		    chunks_to_mesh_queue.push(std::make_pair(c1, MESHING_PRIORITY_PLAYER_EDIT));
 		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
 
-		    debug::window::set_parameter("block_last_action", place);
-		    debug::window::set_parameter("block_last_action_block_type", (int)(Block::STONE));
+		    debug::window::set_parameter("block_last_action", (int)msg.msg_type);
+		    debug::window::set_parameter("block_last_action_block_type",
+			    (int)(block_to_place));
 		    debug::window::set_parameter("block_last_action_x", px1*CHUNK_SIZE + bx1);
 		    debug::window::set_parameter("block_last_action_y", px1*CHUNK_SIZE + by1);
 		    debug::window::set_parameter("block_last_action_z", px1*CHUNK_SIZE + bz1);
@@ -297,20 +319,20 @@ namespace chunkmanager
 
 		    // When necessary, also mesh nearby chunks
 		    ChunkTable::accessor a1, a2, b1, b2, c1, c2;
-		    if(bx == 0 && px - 1 >= 0 && chunks.find(a1, calculateIndex(px - 1, py, pz)))
-		      chunkmesher::mesh(a1->second);
-		    if(by == 0 && py - 1 >= 0 && chunks.find(b1, calculateIndex(px, py - 1, pz)))
-		      chunkmesher::mesh(b1->second);
-		    if(bz == 0 && pz - 1 >= 0 && chunks.find(c1, calculateIndex(px, py, pz - 1)))
-		      chunkmesher::mesh(c1->second);
-		    if(bx == CHUNK_SIZE - 1 && px +1 < 1024 && chunks.find(a2, calculateIndex(px +1, py, pz)))
-		      chunkmesher::mesh(a2->second);
-		    if(by == CHUNK_SIZE - 1 && py +1 < 1024 && chunks.find(b2, calculateIndex(px, py +1, pz)))
-		      chunkmesher::mesh(b2->second);
-		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, calculateIndex(px, py, pz +1)))
-		      chunkmesher::mesh(c2->second);
+		    if(bx == 0 && px - 1 >= 0 && chunks.find(a1, Chunk::calculateIndex(px - 1, py, pz)))
+			chunks_to_mesh_queue.push(std::make_pair(a1->second, MESHING_PRIORITY_PLAYER_EDIT));
+		    if(by == 0 && py - 1 >= 0 && chunks.find(b1, Chunk::calculateIndex(px, py - 1, pz)))
+			chunks_to_mesh_queue.push(std::make_pair(a2->second, MESHING_PRIORITY_PLAYER_EDIT));
+		    if(bz == 0 && pz - 1 >= 0 && chunks.find(c1, Chunk::calculateIndex(px, py, pz - 1)))
+			chunks_to_mesh_queue.push(std::make_pair(b1->second, MESHING_PRIORITY_PLAYER_EDIT));
+		    if(bx == CHUNK_SIZE - 1 && px +1 < 1024 && chunks.find(a2, Chunk::calculateIndex(px +1, py, pz)))
+			chunks_to_mesh_queue.push(std::make_pair(b2->second, MESHING_PRIORITY_PLAYER_EDIT));
+		    if(by == CHUNK_SIZE - 1 && py +1 < 1024 && chunks.find(b2, Chunk::calculateIndex(px, py +1, pz)))
+			chunks_to_mesh_queue.push(std::make_pair(c1->second, MESHING_PRIORITY_PLAYER_EDIT));
+		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, Chunk::calculateIndex(px, py, pz +1)))
+			chunks_to_mesh_queue.push(std::make_pair(c2->second, MESHING_PRIORITY_PLAYER_EDIT));
 
-		    debug::window::set_parameter("block_last_action", place);
+		    debug::window::set_parameter("block_last_action", (int)msg.msg_type);
 		    debug::window::set_parameter("block_last_action_block_type", (int) (Block::AIR));
 		    debug::window::set_parameter("block_last_action_x", px*CHUNK_SIZE + bx);
 		    debug::window::set_parameter("block_last_action_y", py*CHUNK_SIZE + by);
@@ -322,6 +344,7 @@ namespace chunkmanager
 	}
     }
 
+	/*
     Block getBlockAtPos(int x, int y, int z){
 	if(x < 0 || y < 0 || z < 0) return Block::NULLBLK;
 
