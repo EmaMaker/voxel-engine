@@ -8,6 +8,9 @@
 
 #include <atomic>
 
+#include "chunk.hpp"
+#include "debugwindow.hpp"
+
 class Camera
 {
 
@@ -52,6 +55,16 @@ public:
         cameraFront = glm::normalize(direction);
 
         view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+	debug::window::set_parameter("px", cameraPos.x);
+	debug::window::set_parameter("py", cameraPos.y);
+	debug::window::set_parameter("pz", cameraPos.z);
+	debug::window::set_parameter("cx", (int)(cameraPos.x / CHUNK_SIZE));
+	debug::window::set_parameter("cy", (int)(cameraPos.y / CHUNK_SIZE));
+	debug::window::set_parameter("cz", (int)(cameraPos.z / CHUNK_SIZE));
+	debug::window::set_parameter("lx", cameraFront.x);
+	debug::window::set_parameter("ly", cameraFront.y);
+	debug::window::set_parameter("lz", cameraFront.z);
     }
 
     void viewPortCallBack(GLFWwindow *window, int width, int height)
