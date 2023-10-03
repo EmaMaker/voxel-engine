@@ -59,10 +59,6 @@ namespace chunkmanager
 		    index++;
 		}
 
-	// Also init mesh data queue
-	for(int i = 0; i < 10; i++)
-	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
-
 	should_run = true;
 	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
@@ -80,7 +76,7 @@ namespace chunkmanager
 		entry.first->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, false);
 	    }
 	}
-	chunks_to_generate_queue.clear();
+	//chunks_to_generate_queue.clear();
     }
 
     // Method for chunk meshing thread(s)
@@ -93,7 +89,7 @@ namespace chunkmanager
 		chunk->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, false);
 	    }
 	}
-	chunks_to_mesh_queue.clear();
+	//chunks_to_mesh_queue.clear();
     }
 
     void update(){
@@ -177,10 +173,6 @@ namespace chunkmanager
 			    }else{
 				mesh++;
 				// If generated & meshed, render
-				/*if(!c->getState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE)){
-				    renderer::getChunksToRender().push(c);
-				    c->setState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE, true);
-				}*/
 			    }
 			}
 
@@ -189,7 +181,7 @@ namespace chunkmanager
 			if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
 			    // If enough time has passed, set to be deleted
 			    if(c->isFree() && glfwGetTime() - c->unload_timer >= UNLOAD_TIMEOUT){
-				chunks_todelete.push(calculateIndex(x,y,z));
+				chunks_todelete.push(c->getIndex());
 				unload++;
 			    }
 			}else{
@@ -230,6 +222,13 @@ namespace chunkmanager
     }
 
     // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
+    int32_t calculateIndex(Chunk::Chunk* c){
+	return calculateIndex(c->getPosition());
+    }
+    int32_t calculateIndex(glm::vec3 position){
+	return calculateIndex(static_cast<int16_t>(position.x), static_cast<int16_t>(position.y),
+		static_cast<int16_t>(position.z));
+    }
     int32_t calculateIndex(int16_t i, int16_t j, int16_t k){
 	 return i | (j << 10) | (k << 20); 
     }

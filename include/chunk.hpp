@@ -25,14 +25,11 @@ namespace Chunk
 
     constexpr uint16_t CHUNK_STATE_GENERATED = 1;
     constexpr uint16_t CHUNK_STATE_MESHED = 2;
-    constexpr uint16_t CHUNK_STATE_MESH_LOADED = 4;
-    constexpr uint16_t CHUNK_STATE_LOADED = 8;
     constexpr uint16_t CHUNK_STATE_OUTOFVISION = 16;
     constexpr uint16_t CHUNK_STATE_UNLOADED = 32;
     constexpr uint16_t CHUNK_STATE_EMPTY = 64;
     constexpr uint16_t CHUNK_STATE_IN_GENERATION_QUEUE = 128;
     constexpr uint16_t CHUNK_STATE_IN_MESHING_QUEUE = 256;
-    constexpr uint16_t CHUNK_STATE_IN_RENDERING_QUEUE = 512;
 
     int coord3DTo1D(int x, int y, int z);
 
@@ -61,12 +58,14 @@ namespace Chunk
 
     public:
         GLuint VAO{0}, VBO{0}, extentsBuffer{0}, texinfoBuffer{0}, numVertices{0};
+	int32_t getIndex(){ return index; }
 	std::atomic<float> unload_timer{0};
 
     private:
         glm::vec3 position{};
         IntervalMap<Block> blocks{};
         
+	int32_t index;
 	std::atomic_uint16_t state{0};
     };
 };

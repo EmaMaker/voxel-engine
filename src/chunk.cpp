@@ -20,21 +20,11 @@ namespace Chunk
         this->position = pos;
         this->setState(CHUNK_STATE_EMPTY, true);
 	this->setBlocks(0, CHUNK_MAX_INDEX, Block::AIR);
-    }
 
-    void Chunk::createBuffers(){
-	glGenVertexArrays(1, &(this->VAO));
-	glGenBuffers(1, &(this->VBO));
-	glGenBuffers(1, &(this->extentsBuffer));
-	glGenBuffers(1, &(this->texinfoBuffer));
-
-    }
-
-    void Chunk::deleteBuffers(){
-	glDeleteBuffers(1, &(this->VBO));
-	glDeleteBuffers(1, &(this->extentsBuffer));
-	glDeleteBuffers(1, &(this->texinfoBuffer));
-        glDeleteVertexArrays(1, &(this->VAO));
+	int16_t i = static_cast<int16_t>(pos.x);
+	int16_t j = static_cast<int16_t>(pos.y);
+	int16_t k = static_cast<int16_t>(pos.z);
+	index =  i | (j << 10) | (k << 20); 
     }
 
     Block Chunk::getBlock(int x, int y, int z)

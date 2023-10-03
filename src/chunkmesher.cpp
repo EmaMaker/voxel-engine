@@ -13,13 +13,17 @@
 
 namespace chunkmesher{
 
-oneapi::tbb::concurrent_queue<MeshData*> MeshDataQueue;
+ChunkMeshDataQueue MeshDataQueue;
+ChunkMeshDataQueue& getMeshDataQueue(){ return MeshDataQueue; }
 
-oneapi::tbb::concurrent_queue<MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
+void init(){
+    for(int i = 0; i < 10; i++)
+	MeshDataQueue.push(new ChunkMeshData{});
+}
     
 void mesh(Chunk::Chunk* chunk)
 {
-    MeshData* mesh_data;
+    ChunkMeshData* mesh_data;
     if(!MeshDataQueue.try_pop(mesh_data)) return;
 
     /*
@@ -38,28 +42,13 @@ void mesh(Chunk::Chunk* chunk)
      */
 
     // Cleanup previous data
-    mesh_data->numVertices = 0;
-    mesh_data->chunk = chunk;
-    mesh_data->vertices.clear();
-    mesh_data->extents.clear();
-    mesh_data->texinfo.clear();
+    mesh_data->clear();
+    mesh_data->message_type = ChunkMeshDataType::MESH_UPDATE;
+    mesh_data->index = chunk->getIndex();
+    mesh_data->position = chunk->getPosition();
 
-    // Abort if chunk is empty
-    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)){
-	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
-	renderer::getMeshDataQueue().push(mesh_data);
-	return;
-    }
-
-    // convert tree to array since it is easier to work with it
+    std::unique_ptr<Block[]> blocks;
     int length{0};
-    std::unique_ptr<Block[]> blocks = chunk->getBlocksArray(&length);
-    if(length == 0) {
-	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
-	renderer::getMeshDataQueue().push(mesh_data);
-	return;
-    }
-    
     int k, l, u, v, w, h, n, j, i;
     int x[]{0, 0, 0};
     int q[]{0, 0, 0};
@@ -67,6 +56,14 @@ void mesh(Chunk::Chunk* chunk)
     int dv[]{0, 0, 0};
 
     std::array<Block, CHUNK_SIZE * CHUNK_SIZE> mask;
+
+    // Abort if chunk is empty
+    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) goto end;
+
+    // convert tree to array since it is easier to work with it
+    blocks = chunk->getBlocksArray(&length);
+    if(length == 0) goto end;
+    
     for (bool backFace = true, b = false; b != backFace; backFace = backFace && b, b = !b)
     {
         // iterate over 3 dimensions
@@ -188,14 +185,15 @@ void mesh(Chunk::Chunk* chunk)
 				mesh_data->vertices.push_back(x[1]); //bottomLeft.y
 				mesh_data->vertices.push_back(x[2]); //bottomLeft.z
 
-				// extents, use normals for now
+				// extents
 				mesh_data->extents.push_back(du[0] + dv[0]);
 				mesh_data->extents.push_back(du[1] + dv[1]);
 				mesh_data->extents.push_back(du[2] + dv[2]);
 
+				// texture info (block type, backFace)
 				mesh_data->texinfo.push_back(backFace ? 0.0 : 1.0);
 				mesh_data->texinfo.push_back((int)(mask[n]) - 2);
-				mesh_data->numVertices++;
+				mesh_data->num_vertices++;
                             }
 
                             for (l = 0; l < h; ++l)
@@ -224,49 +222,8 @@ void mesh(Chunk::Chunk* chunk)
         }
     }
 
+end:
     chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
     renderer::getMeshDataQueue().push(mesh_data);
-}
-
-void sendtogpu(MeshData* mesh_data)
-{
-    if (mesh_data->numVertices > 0)
-    {
-	if(mesh_data->chunk->VAO == 0) mesh_data->chunk->createBuffers();
-
-	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-	glBindVertexArray(mesh_data->chunk->VAO);
-
-	// position attribute
-	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->VBO);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-	glEnableVertexAttribArray(0);
-
-	// normal attribute
-	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->extentsBuffer);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
-	glEnableVertexAttribArray(1);
-
-	// texcoords attribute
-	glBindBuffer(GL_ARRAY_BUFFER, mesh_data->chunk->texinfoBuffer);
-	glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
-
-	glBindVertexArray(0);
-
-	// save the number of indices of the mesh, it is needed later for drawing
-	mesh_data->chunk->numVertices = (GLuint)(mesh_data->numVertices);
-
-	// once data has been sent to the GPU, it can be cleared from system RAM
-	mesh_data->vertices.clear();
-	mesh_data->extents.clear();
-	mesh_data->texinfo.clear();
-    }
-    
-    // mark the chunk mesh has loaded on GPU
-    mesh_data->chunk->setState(Chunk::CHUNK_STATE_MESH_LOADED, true);
 }
 };

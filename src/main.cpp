@@ -70,8 +70,9 @@ int main()
     }
 
     SpaceFilling::initLUT();
-    chunkmanager::init();
     debug::window::init(window);
+    chunkmanager::init();
+    chunkmesher::init();
     renderer::init(window);
 
     while (!glfwWindowShouldClose(window))

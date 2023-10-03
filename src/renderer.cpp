@@ -3,8 +3,7 @@
 #include <glm/ext.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-#include <oneapi/tbb/concurrent_vector.h>
-#include <oneapi/tbb/concurrent_queue.h>
+#include <oneapi/tbb/concurrent_hash_map.h>
 
 #include "chunkmanager.hpp"
 #include "chunkmesher.hpp"
@@ -15,21 +14,22 @@
 #include "stb_image_write.h"
 
 namespace renderer{
-    RenderQueue chunks_torender;
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*> MeshDataQueue;
+    typedef oneapi::tbb::concurrent_hash_map<int32_t, RenderInfo*> RenderTable;
+
+    RenderTable ChunksToRender;
+    ChunkMeshDataQueue MeshDataQueue;
 
     Shader* theShader, *quadShader;
     GLuint chunkTexture;
-
-    Shader* getRenderShader() { return theShader; }
-    RenderQueue& getChunksToRender(){ return chunks_torender; }
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
 
     int crosshair_type{0};
     bool wireframe{false};
+
+    Shader* getRenderShader() { return theShader; }
+    ChunkMeshDataQueue& getMeshDataQueue(){ return MeshDataQueue; }
 
     void init(GLFWwindow* window){
 	// Setup rendering
@@ -140,26 +140,49 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
-	chunkmesher::MeshData* m;
+	// TODO: works but some stuff is rendered wrong (trees floating or inside the terrain,
+	// missing or malformed chunks)
+	ChunkMeshData* m;
 	while(MeshDataQueue.try_pop(m)){
-	    chunkmesher::sendtogpu(m);
+	    RenderTable::accessor a;
+	    RenderInfo* render_info;
+
+	    if(ChunksToRender.find(a, m->index)){
+		render_info = a->second;
+		render_info->position = m->position;
+		render_info->num_vertices = m->num_vertices;
+		std::cout << "index collision on " << render_info->index << std::endl;
+	    }else{
+		render_info = new RenderInfo();
+		render_info->index = m->index;
+		render_info->position = m->position;
+		render_info->num_vertices = m->num_vertices;
+
+		ChunksToRender.emplace(a, std::make_pair(render_info->index, render_info));
+	    }
+
+	    send_chunk_to_gpu(m, render_info);
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
 
-	Chunk::Chunk* c;
-	while(chunks_torender.try_pop(c)){
-	    if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) goto end;
+	// TODO: implement removal of chunks from rendering
+	std::cout << "chunks to render: " << ChunksToRender.size();
+
+
+	// Render the chunks
+	// parallel_for cannot be used since all the rendering needs to happen in a single thread
+	for(RenderTable::iterator i = ChunksToRender.begin(); i != ChunksToRender.end(); i++){
+	    RenderInfo* render_info = i->second;
 	    
 	    total++;
-
-	    if(c->numVertices > 0)
+	    if(render_info->num_vertices > 0)
 	    {
 
 		// Increase total vertex count
-		vertices += c->numVertices;
+		vertices += render_info->num_vertices;
 
 		// Perform frustum culling and eventually render
-		glm::vec3 chunk = c->getPosition();
+		glm::vec3 chunk = render_info->position;
 		glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
 		glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
 
@@ -185,16 +208,13 @@ namespace renderer{
 		    theShader->setMat4("view", theCamera.getView());
 		    theShader->setMat4("projection", theCamera.getProjection());
 
-		    glBindVertexArray(c->VAO);
-		    glDrawArrays(GL_POINTS, 0, c->numVertices);
+		    glBindVertexArray(render_info->VAO);
+		    glDrawArrays(GL_POINTS, 0, render_info->num_vertices);
 		    glBindVertexArray(0);
 
 		    toGpu++;
 		}
 	    }
-
-end:
-	    c->setState(Chunk::CHUNK_STATE_IN_RENDERING_QUEUE, false);
 	}
 
 	debug::window::set_parameter("render_chunks_total", total);
@@ -221,6 +241,39 @@ end:
 	glBindVertexArray(0);
 
 	debug::window::render();
+    }
+
+    void send_chunk_to_gpu(ChunkMeshData* mesh_data, RenderInfo* render_info)
+    {
+	if (render_info->num_vertices > 0)
+	{
+	    if(!render_info->buffers_allocated) render_info->allocateBuffers();
+
+	    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	    glBindVertexArray(render_info->VAO);
+
+	    // TODO: change GL_STATIC_DRAW to the one that means "few redraws and further in between"
+
+	    // position attribute
+	    glBindBuffer(GL_ARRAY_BUFFER, render_info->VBO);
+	    glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
+	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	    glEnableVertexAttribArray(0);
+
+	    // normal attribute
+	    glBindBuffer(GL_ARRAY_BUFFER, render_info->extentsBuffer);
+	    glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
+	    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
+	    glEnableVertexAttribArray(1);
+
+	    // texcoords attribute
+	    glBindBuffer(GL_ARRAY_BUFFER, render_info->texinfoBuffer);
+	    glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
+	    glEnableVertexAttribArray(2);
+	    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+
+	    glBindVertexArray(0);
+	}
     }
 
     void framebuffer_size_callback(GLFWwindow *window, int width, int height){
