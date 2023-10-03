@@ -3,6 +3,5 @@
 
 void framebuffer_size_callback(GLFWwindow *, int, int);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
-void processInput(GLFWwindow *);
 
 #endif
