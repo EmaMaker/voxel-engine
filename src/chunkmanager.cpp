@@ -95,8 +95,9 @@ namespace chunkmanager
     void generate(){
 	while(should_run){
 	    ChunkPQEntry entry;
-	    while(chunks_to_generate_queue.try_pop(entry)) generateChunk(entry.first);
+	    if(chunks_to_generate_queue.try_pop(entry)) generateChunk(entry.first);
 	}
+	chunks_to_generate_queue.clear();
     }
 
     // Method for chunk meshing thread(s)
@@ -111,6 +112,7 @@ namespace chunkmanager
 		}
 	    }
 	}
+	chunks_to_mesh_queue.clear();
     }
 
     oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
@@ -185,10 +187,16 @@ namespace chunkmanager
 
     void stop() {
 	should_run=false;
+
+	std::cout << "Waiting for secondary threads to shut down" << std::endl;
 	update_thread.join();
+	std::cout << "Update thread has terminated" << std::endl;
 	gen_thread.join();
+	std::cout << "Generation thread has terminated" << std::endl;
 	mesh_thread.join();
+	std::cout << "Meshing thread has terminated" << std::endl;
     }
+
     void destroy(){
 	/*for(const auto& n : chunks){
 	    delete n.second;
@@ -314,3 +322,4 @@ namespace chunkmanager
 	}
     }
 };
+
