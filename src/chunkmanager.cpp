@@ -157,8 +157,8 @@ namespace chunkmanager
 			if(!c->getState(Chunk::CHUNK_STATE_GENERATED)){
 			    if(!c->getState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE)){
 				// Generate
-				chunks_to_generate_queue.push(std::make_pair(c, GENERATION_PRIORITY_NORMAL));
 				c->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, true);
+				chunks_to_generate_queue.push(std::make_pair(c, GENERATION_PRIORITY_NORMAL));
 			    }
 			}else{
 			    gen++;
@@ -167,8 +167,8 @@ namespace chunkmanager
 			    if(!c->getState(Chunk::CHUNK_STATE_MESHED)){
 				if(!c->getState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE)){
 				    // Mesh
-				    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
 				    c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
+				    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
 				}
 			    }else{
 				mesh++;
