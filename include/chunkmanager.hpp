@@ -17,9 +17,6 @@
 #define MESHING_PRIORITY_PLAYER_EDIT 10
 #define GENERATION_PRIORITY_NORMAL 0
 
-typedef int16_t chunk_intcoord_t;
-typedef int32_t chunk_index_t;
-
 namespace chunkmanager
 {
     typedef oneapi::tbb::concurrent_hash_map<chunk_index_t, Chunk::Chunk*> ChunkTable;
@@ -34,7 +31,6 @@ namespace chunkmanager
 
     void init();
     void blockpick(bool place);
-    chunk_index_t calculateIndex(chunk_intcoord_t i, chunk_intcoord_t j, chunk_intcoord_t k);
     
     void stop();
     void destroy();

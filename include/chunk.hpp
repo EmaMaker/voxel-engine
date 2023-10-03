@@ -20,8 +20,15 @@
 #define CHUNK_VOLUME (CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE)
 #define CHUNK_MAX_INDEX (CHUNK_VOLUME - 1)
 
+// int32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
+typedef int32_t chunk_index_t;
+typedef int16_t chunk_intcoord_t;
+
 namespace Chunk
 {
+
+    chunk_index_t calculateIndex(chunk_intcoord_t i, chunk_intcoord_t j, chunk_intcoord_t k);
+    chunk_index_t calculateIndex(glm::vec3 pos);
 
     constexpr uint8_t CHUNK_STATE_GENERATED = 1;
     constexpr uint8_t CHUNK_STATE_MESHED = 2;

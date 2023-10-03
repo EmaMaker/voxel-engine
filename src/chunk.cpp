@@ -15,6 +15,15 @@ namespace Chunk
         return utils::coord3DTo1D(x, y, z, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
     }
 
+    chunk_index_t calculateIndex(glm::vec3 pos){
+	return calculateIndex(static_cast<chunk_intcoord_t>(pos.x), static_cast<chunk_intcoord_t>(pos.y),
+		static_cast<chunk_intcoord_t>(pos.z));
+    }
+
+    chunk_index_t calculateIndex(chunk_intcoord_t i, chunk_intcoord_t j, chunk_intcoord_t k){
+	 return i | (j << 10) | (k << 20); 
+    }
+
     Chunk::Chunk(glm::vec3 pos)
     {
         this->position = pos;
