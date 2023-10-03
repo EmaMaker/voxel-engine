@@ -65,12 +65,15 @@ namespace Chunk
     public:
         GLuint VAO{0}, VBO{0}, extentsBuffer{0}, texinfoBuffer{0}, numVertices{0};
 	std::atomic<float> unload_timer{0};
+	chunk_index_t getIndex(){ return this->index; }
 
     private:
         glm::vec3 position{};
         IntervalMap<Block> blocks{};
         
 	std::atomic_uint8_t state{0};
+
+	chunk_index_t index;
     };
 };
 

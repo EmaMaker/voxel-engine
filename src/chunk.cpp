@@ -29,6 +29,7 @@ namespace Chunk
         this->position = pos;
         this->setState(CHUNK_STATE_EMPTY, true);
 	this->setBlocks(0, CHUNK_MAX_INDEX, Block::AIR);
+	this->index = calculateIndex(pos);
     }
 
     Chunk ::~Chunk()
