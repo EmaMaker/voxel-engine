@@ -1,3 +1,6 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
 #include "debugwindow.hpp"
 
 #include <imgui/imgui.h>
@@ -62,13 +65,14 @@ namespace debug{
 	void show_debug_window(){
 	    ImGui::Begin("Debug Window");
 
-	    ImGui::PushItemWidth(ImGui::GetFontSize() * -12);
+	    //ImGui::PushItemWidth(ImGui::GetFontSize() * -12);
 
 	    try{
 		if (ImGui::CollapsingHeader("Frametimes")){
 		    ImGui::Text("FPS: %d", std::any_cast<int>(parameters.at("fps")));
 		    ImGui::Text("Frametime (ms): %f",
 			    std::any_cast<float>(parameters.at("frametime"))*1000);
+		    ImGui::Text("GPU: %s %s", glGetString(GL_VENDOR), glGetString(GL_RENDERER));
 		    //ImGui::PlotLines("Frame Times", arr, IM_ARRAYSIZE(arr);
 		}
 
@@ -127,6 +131,8 @@ namespace debug{
 			std::any_cast<int>(parameters.at("update_chunks_explored")));
 		}
 	    }catch(const std::bad_any_cast& e){
+		std::cout << e.what();
+	    }catch(const std::out_of_range& e){
 		std::cout << e.what();
 	    }
 

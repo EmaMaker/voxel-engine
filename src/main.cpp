@@ -61,8 +61,6 @@ int main()
     //glEnable(GL_FRAMEBUFFER_SRGB); //gamma correction done in fragment shader
     //glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
 
-    std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
-
     wireframe = false;
     for(int i = 0; i < 360; i++){
 	sines[i] = sin(3.14 / 180 * i);
