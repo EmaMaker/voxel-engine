@@ -167,9 +167,9 @@ namespace chunkmanager
 		    int gen{0}, mesh{0}, unload{0};
 
 		    if(
-			    distx >= -RENDER_DISTANCE && distx <= RENDER_DISTANCE &&
-			    disty >= -RENDER_DISTANCE && disty <= RENDER_DISTANCE &&
-			    distz >= -RENDER_DISTANCE && distz <= RENDER_DISTANCE
+			    distx >= -RENDER_DISTANCE && distx < RENDER_DISTANCE &&
+			    disty >= -RENDER_DISTANCE && disty < RENDER_DISTANCE &&
+			    distz >= -RENDER_DISTANCE && distz < RENDER_DISTANCE
 		      ){
 
 			// If within distance
@@ -189,7 +189,22 @@ namespace chunkmanager
 			    // If generated but not yet meshed
 			    // TODO: not getting meshed
 			    if(!c->getState(Chunk::CHUNK_STATE_MESHED)){
-				if(c->isFree()){
+				ChunkTable::accessor a1;
+				if(c->isFree() && 
+				    (distx+1 >= RENDER_DISTANCE || x + 1 > 1023 || (chunks.find(a1, Chunk::calculateIndex(x+1, y, z)) &&
+					a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				    (distx-1 < -RENDER_DISTANCE || x - 1 < 0 || (chunks.find(a1, Chunk::calculateIndex(x-1, y, z)) &&
+					a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				    (disty+1 >= RENDER_DISTANCE || y + 1 > 1023 || (chunks.find(a1, Chunk::calculateIndex(x, y+1, z)) &&
+					a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				    (disty-1 < -RENDER_DISTANCE || y - 1 < 0|| (chunks.find(a1, Chunk::calculateIndex(x, y-1, z)) &&
+					a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				    (distz+1 >= RENDER_DISTANCE || z + 1 > 1023 || (chunks.find(a1, Chunk::calculateIndex(x, y, z+1)) &&
+					a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
+				    (distz-1 < -RENDER_DISTANCE || z - 1 < 0|| (chunks.find(a1, Chunk::calculateIndex(x, y, z-1)) &&
+					a1->second->getState(Chunk::CHUNK_STATE_GENERATED)))
+				  )
+				{
 				    // Mesh
 				    c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
 				    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
@@ -344,7 +359,6 @@ namespace chunkmanager
 	}
     }
 
-	/*
     Block getBlockAtPos(int x, int y, int z){
 	if(x < 0 || y < 0 || z < 0) return Block::NULLBLK;
 
@@ -356,7 +370,7 @@ namespace chunkmanager
 
 	//std::cout << "Block at " << x << ", " << y << ", " << z << " is in chunk " << cx << "," << cy << "," << cz << "\n";
 	ChunkTable::accessor a;
-	if(!chunks.find(a, calculateIndex(cx, cy, cz))) return Block::NULLBLK;
+	if(!chunks.find(a, Chunk::calculateIndex(cx, cy, cz))) return Block::NULLBLK;
 	else {
 	    int bx = x % CHUNK_SIZE;
 	    int by = y % CHUNK_SIZE;
@@ -366,5 +380,5 @@ namespace chunkmanager
 	    //std::cout << "Block is at " << bx << "," << by << "," << bz << "(" << (int)b << ")\n";
 	    return b;
 	}
-    }*/
+    }
 };

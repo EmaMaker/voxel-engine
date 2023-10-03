@@ -11,6 +11,8 @@
 #include "spacefilling.hpp"
 #include "utils.hpp"
 
+#define CHUNKMESHER_BORDERS 0
+
 namespace chunkmesher{
 
 ChunkMeshDataQueue MeshDataQueue;
@@ -95,8 +97,7 @@ void mesh(Chunk::Chunk* chunk)
 			Block b1, b2;
 			if(x[dim] >= 0) b1 = blocks[HILBERT_XYZ_ENCODE[x[0]][x[1]][x[2]]];
 			else{
-			    b1 = Block::NULLBLK;
-			    /*
+			    // b1 = Block::NULLBLK;
 			    int cx = chunk->getPosition().x*CHUNK_SIZE;
 			    int cy = chunk->getPosition().y*CHUNK_SIZE;
 			    int cz = chunk->getPosition().z*CHUNK_SIZE;
@@ -105,14 +106,13 @@ void mesh(Chunk::Chunk* chunk)
 			    int by = cy+x[1];
 			    int bz = cz+x[2];
 
-			    b1 = chunkmanager::getBlockAtPos(bx, by, bz);*/
+			    b1 = chunkmanager::getBlockAtPos(bx, by, bz);
 			}
 
 			if(x[dim] < CHUNK_SIZE - 1) b2 = blocks[HILBERT_XYZ_ENCODE[x[0] + q[0]][x[1]
 			    + q[1]][x[2] + q[2]]];
 			else{
-			    b2 = Block::NULLBLK;
-			    /*
+			    //b2 = Block::NULLBLK;
 			    int cx = chunk->getPosition().x*CHUNK_SIZE;
 			    int cy = chunk->getPosition().y*CHUNK_SIZE;
 			    int cz = chunk->getPosition().z*CHUNK_SIZE;
@@ -121,7 +121,7 @@ void mesh(Chunk::Chunk* chunk)
 			    int by = cy+x[1] + q[1];
 			    int bz = cz+x[2] + q[2];
 
-			    b2 = chunkmanager::getBlockAtPos(bx, by, bz);*/
+			    b2 = chunkmanager::getBlockAtPos(bx, by, bz);
 			}
 
 			// Compute the mask
@@ -129,9 +129,15 @@ void mesh(Chunk::Chunk* chunk)
 			// The else case provides face culling for adjacent solid faces
 			// Checking for NULLBLK avoids creating empty faces if nearby chunk was not
 			// yet generated
+#if CHUNKMESHER_BORDERS == 1
 			mask[n++] = b1 == b2 ? Block::NULLBLK
                                     : backFace ? b1 == Block::NULLBLK || b1 == Block::AIR ? b2 : Block::NULLBLK
                                     : b2 == Block::NULLBLK || b2 == Block::AIR ? b1 : Block::NULLBLK;
+#else
+			mask[n++] = b1 == b2 ? Block::NULLBLK
+                                    : backFace ? b1 == Block::AIR ? b2 : Block::NULLBLK
+                                    : b2 == Block::AIR ? b1 : Block::NULLBLK;
+#endif
                     }
                 }
 
