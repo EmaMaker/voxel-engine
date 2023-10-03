@@ -25,11 +25,12 @@ namespace Chunk
 
     constexpr uint16_t CHUNK_STATE_GENERATED = 1;
     constexpr uint16_t CHUNK_STATE_MESHED = 2;
-    constexpr uint16_t CHUNK_STATE_OUTOFVISION = 16;
-    constexpr uint16_t CHUNK_STATE_UNLOADED = 32;
-    constexpr uint16_t CHUNK_STATE_EMPTY = 64;
-    constexpr uint16_t CHUNK_STATE_IN_GENERATION_QUEUE = 128;
-    constexpr uint16_t CHUNK_STATE_IN_MESHING_QUEUE = 256;
+    constexpr uint16_t CHUNK_STATE_OUTOFVISION = 4;
+    constexpr uint16_t CHUNK_STATE_UNLOADED = 8;
+    constexpr uint16_t CHUNK_STATE_EMPTY = 16;
+    constexpr uint16_t CHUNK_STATE_IN_GENERATION_QUEUE = 32;
+    constexpr uint16_t CHUNK_STATE_IN_MESHING_QUEUE = 64;
+    constexpr uint16_t CHUNK_STATE_IN_DELETING_QUEUE = 128;
 
     int coord3DTo1D(int x, int y, int z);
 
