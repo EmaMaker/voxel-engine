@@ -4,25 +4,22 @@
 #include <iostream>
 #include <thread>
 
+#include "main.hpp"
+
 #define GLOBALS_DEFINER
 #include "globals.hpp"
 #undef GLOBALS_DEFINER
-
 #include "chunkmanager.hpp"
-#include "main.hpp"
+#include "controls.hpp"
 #include "debugwindow.hpp"
 #include "renderer.hpp"
-#include "spacefilling.hpp"
 #include "shader.hpp"
+#include "spacefilling.hpp"
 
 float deltaTime = 0.0f; // Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
 float lastFPSFrame = 0.0f;
 int frames = 0;
-
-float lastBlockPick=0.0;
-bool blockpick = false;
-bool cursor = false;
 
 int main()
 {
@@ -70,6 +67,7 @@ int main()
     }
 
     SpaceFilling::initLUT();
+    controls::init();
     chunkmanager::init();
     debug::window::init(window);
     renderer::init(window);
@@ -94,14 +92,24 @@ int main()
         glClearColor(0.431f, 0.694f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Input processing
-        processInput(window);
+	// Input handling
+        // Only close event is handles by main
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+	    glfwSetWindowShouldClose(window, true);
+	// the rest of input processing is handled by controls.cpp
+	controls::update(window);
 
         // Camera
         theCamera.update(window, deltaTime);
-	
-	// Reset blockping timeout if 200ms have passed
-	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;
+	debug::window::set_parameter("px", theCamera.getPos().x);
+	debug::window::set_parameter("py", theCamera.getPos().y);
+	debug::window::set_parameter("pz", theCamera.getPos().z);
+	debug::window::set_parameter("cx", (int)(theCamera.getPos().x / CHUNK_SIZE));
+	debug::window::set_parameter("cy", (int)(theCamera.getPos().y / CHUNK_SIZE));
+	debug::window::set_parameter("cz", (int)(theCamera.getPos().z / CHUNK_SIZE));
+	debug::window::set_parameter("lx", theCamera.getFront().x);
+	debug::window::set_parameter("ly", theCamera.getFront().y);
+	debug::window::set_parameter("lz", theCamera.getFront().z);
 
 	// Render pass
 	renderer::render();
@@ -133,34 +141,4 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 {
     theCamera.mouseCallback(window, xpos, ypos);
-}
-
-void processInput(GLFWwindow *window)
-{
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && !blockpick){
-	chunkmanager::blockpick(false);
-	blockpick=true;
-	lastBlockPick=glfwGetTime();
-    }
-
-    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && !blockpick){
-	chunkmanager::blockpick(true);
-	blockpick=true;
-	lastBlockPick=glfwGetTime();
-    }
-
-    // Reset blockpicking if enough time has passed
-    if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_RELEASE) blockpick = false;
-
-    if(glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS) renderer::saveScreenshot();
-    if(glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS) renderer::saveScreenshot(true);
-    if(glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
-	cursor = !cursor;
-	glfwSetInputMode(window, GLFW_CURSOR, cursor ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
-    }
-    
-
 }

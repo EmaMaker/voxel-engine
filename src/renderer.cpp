@@ -149,37 +149,36 @@ namespace renderer{
 	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
 		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
 
-		// Increase total vertex count
-		vertices += c->numVertices;
+		if(c->numVertices > 0){
+		    // Increase total vertex count
+		    vertices += c->numVertices;
 
-		// reset out-of-vision and unload flags
-		c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
-		c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
+		    // reset out-of-vision and unload flags
+		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
+		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
 
-		// Perform frustum culling and eventually render
-		glm::vec3 chunk = c->getPosition();
-		glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
-		glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
+		    // Perform frustum culling and eventually render
+		    glm::vec3 chunk = c->getPosition();
+		    glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
+		    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
 
-		// Check if all the corners of the chunk are outside any of the planes
-		// TODO (?) implement frustum culling as per (Inigo Quilez)[https://iquilezles.org/articles/frustumcorrect/], and check each
-		// plane against each corner of the chunk 
-		bool out=false;
-		int a{0};
-		for(int p = 0; p < 6; p++){
-		    a = 0;
-		    for(int i = 0; i < 8; i++)  a += glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
-				    + ((float)((i & 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >> 2))*CHUNK_SIZE, 1.0)) < 0.0;
+		    // Check if all the corners of the chunk are outside any of the planes
+		    // TODO (?) implement frustum culling as per (Inigo Quilez)[https://iquilezles.org/articles/frustumcorrect/], and check each
+		    // plane against each corner of the chunk 
+		    bool out=false;
+		    int a{0};
+		    for(int p = 0; p < 6; p++){
+			a = 0;
+			for(int i = 0; i < 8; i++)  a += glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
+					+ ((float)((i & 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >> 2))*CHUNK_SIZE, 1.0)) < 0.0;
 
-		    if(a==8){
-			out=true;
-			break;
+			if(a==8){
+			    out=true;
+			    break;
+			}
 		    }
-		}
 
-		if (!out)
-		{
-		    if(c->numVertices > 0)
+		    if (!out)
 		    {
 			theShader->setMat4("model", model);
 			theShader->setMat4("view", theCamera.getView());

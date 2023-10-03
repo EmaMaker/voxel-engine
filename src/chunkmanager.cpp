@@ -24,7 +24,7 @@ namespace chunkmanager
     // Concurrent hash table of chunks
     ChunkTable chunks;
     // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
-    std::array<std::array<int, 3>, chunks_volume> chunks_indices;
+    std::array<std::array<chunk_intcoord_t, 3>, chunks_volume> chunks_indices;
 
     /* Multithreading */
     std::atomic_bool should_run;
@@ -37,47 +37,18 @@ namespace chunkmanager
     int block_to_place{2};
 
     // Init chunkmanager. Chunk indices and start threads
-    int chunks_volume_real;
     void init(){
 	int index{0};
-	int rr{RENDER_DISTANCE * RENDER_DISTANCE};
 
-        int xp{0}, x{0};
-        bool b = true;
+	for(chunk_intcoord_t i = -RENDER_DISTANCE; i < RENDER_DISTANCE; i++)
+	    for(chunk_intcoord_t j = -RENDER_DISTANCE; j < RENDER_DISTANCE; j++)
+		for(chunk_intcoord_t k = -RENDER_DISTANCE; k < RENDER_DISTANCE; k++){
 
-        // Iterate over all chunks, in concentric spheres starting fron the player and going outwards. Alternate left and right
-        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
-        while (xp <= RENDER_DISTANCE)
-        {
-	    // Alternate between left and right
-            if (b) x = +xp;
-            else x = -xp;
-
-	    // Step 1. At current x, get the corresponding y values (2nd degree equation, up to 2
-	    // possible results)
-            int y1 = static_cast<int>(sqrt((rr) - x*x));
-
-            for (int y = -y1 + 1 ; y <= y1; y++)
-            {
-                // Step 2. At both y's, get the corresponding z values
-		int z1 = static_cast<int>(sqrt( rr - x*x - y*y));
-
-                for (int z = -z1 + 1; z <= z1; z++){
-		    chunks_indices[index][0] = x;
-		    chunks_indices[index][1] = y;
-		    chunks_indices[index][2] = z;
+		    chunks_indices[index][0]=i;
+		    chunks_indices[index][1]=j;
+		    chunks_indices[index][2]=k;
 		    index++;
 		}
-            }
-
-            if (!b)
-            {
-                xp++;
-                b = true;
-            }
-            else  b = false;
-	}
-	chunks_volume_real = index;
 
 	// Also init mesh data queue
 	for(int i = 0; i < 10; i++)
@@ -95,8 +66,9 @@ namespace chunkmanager
     void generate(){
 	while(should_run){
 	    ChunkPQEntry entry;
-	    while(chunks_to_generate_queue.try_pop(entry)) generateChunk(entry.first);
+	    if(chunks_to_generate_queue.try_pop(entry)) generateChunk(entry.first);
 	}
+	chunks_to_generate_queue.clear();
     }
 
     // Method for chunk meshing thread(s)
@@ -111,6 +83,7 @@ namespace chunkmanager
 		}
 	    }
 	}
+	chunks_to_mesh_queue.clear();
     }
 
     oneapi::tbb::concurrent_queue<Chunk::Chunk*> chunks_todelete;
@@ -121,24 +94,14 @@ namespace chunkmanager
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
-	    debug::window::set_parameter("px", theCamera.getAtomicPosX());
-	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
-	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
-	    debug::window::set_parameter("cx", chunkX);
-	    debug::window::set_parameter("cy", chunkY);
-	    debug::window::set_parameter("cz", chunkZ);
-	    debug::window::set_parameter("lx", theCamera.getFront().x);
-	    debug::window::set_parameter("ly", theCamera.getFront().y);
-	    debug::window::set_parameter("lz", theCamera.getFront().z);
-
 	    // Update other chunks
-	    for(int i = 0; i < chunks_volume_real; i++) {
-		const uint16_t x = chunks_indices[i][0] + chunkX;
-		const uint16_t y = chunks_indices[i][1] + chunkY;
-		const uint16_t z = chunks_indices[i][2] + chunkZ;
-		const uint32_t index = calculateIndex(x, y, z);
+	    for(int i = 0; i < chunks_volume; i++) {
+		const chunk_intcoord_t x = chunks_indices[i][0] + chunkX;
+		const chunk_intcoord_t y = chunks_indices[i][1] + chunkY;
+		const chunk_intcoord_t z = chunks_indices[i][2] + chunkZ;
 
-		if(x > 1023 || y > 1023 || z > 1023) continue;
+		if(x < 0 || y < 0 || z < 0 || x > 1023 || y > 1023 || z > 1023) continue;
+		const chunk_index_t index = Chunk::calculateIndex(x, y, z);
 
 		ChunkTable::accessor a, a1, a2, b1, b2, c1, c2;
 		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new Chunk::Chunk(glm::vec3(x,y,z))));
@@ -147,17 +110,17 @@ namespace chunkmanager
 		    chunks_to_generate_queue.push(std::make_pair(a->second, GENERATION_PRIORITY_NORMAL));
 		}else if(! (a->second->getState(Chunk::CHUNK_STATE_MESHED))){
 		    if(
-			    (x + 1 > 1023 || (chunks.find(a1, calculateIndex(x+1, y, z)) &&
+			    (x + 1 > 1023 || (chunks.find(a1, Chunk::calculateIndex(x+1, y, z)) &&
 					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (x - 1 < 0|| (chunks.find(a1, calculateIndex(x-1, y, z)) &&
+			    (x - 1 < 0|| (chunks.find(a1, Chunk::calculateIndex(x-1, y, z)) &&
 					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (y + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y+1, z)) &&
+			    (y + 1 > 1023 || (chunks.find(a1, Chunk::calculateIndex(x, y+1, z)) &&
 					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (y - 1 < 0|| (chunks.find(a1, calculateIndex(x, y-1, z)) &&
+			    (y - 1 < 0|| (chunks.find(a1, Chunk::calculateIndex(x, y-1, z)) &&
 					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (z + 1 > 1023 || (chunks.find(a1, calculateIndex(x, y, z+1)) &&
+			    (z + 1 > 1023 || (chunks.find(a1, Chunk::calculateIndex(x, y, z+1)) &&
 					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED))) && 
-			    (z - 1 < 0|| (chunks.find(a1, calculateIndex(x, y, z-1)) &&
+			    (z - 1 < 0|| (chunks.find(a1, Chunk::calculateIndex(x, y, z-1)) &&
 					      a1->second->getState(Chunk::CHUNK_STATE_GENERATED)))
 		      )
 		       chunks_to_mesh_queue.push(std::make_pair(a->second, MESHING_PRIORITY_NORMAL));
@@ -172,11 +135,11 @@ namespace chunkmanager
 	    Chunk::Chunk* n;
 	    nUnloaded = 0;
 	    while(chunks_todelete.try_pop(n)){
-		int x = static_cast<uint16_t>(n->getPosition().x);
-		int y = static_cast<uint16_t>(n->getPosition().y);
-		int z = static_cast<uint16_t>(n->getPosition().z);
+		chunk_intcoord_t x = static_cast<chunk_intcoord_t>(n->getPosition().x);
+		chunk_intcoord_t y = static_cast<chunk_intcoord_t>(n->getPosition().y);
+		chunk_intcoord_t z = static_cast<chunk_intcoord_t>(n->getPosition().z);
 		if(x > 1023 || y > 1023 || z > 1023) continue;
-		const uint32_t index = calculateIndex(x, y, z);
+		const uint32_t index = Chunk::calculateIndex(x, y, z);
 
 		chunks.erase(index);
 		//delete n;
@@ -185,20 +148,21 @@ namespace chunkmanager
 	}
     }
 
-    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
-    uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k){
-	 return i | (j << 10) | (k << 20); 
-    }
-
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector(){ return chunks_todelete; }
-    std::array<std::array<int, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
+    std::array<std::array<chunk_intcoord_t, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }
 
     void stop() {
 	should_run=false;
+
+	std::cout << "Waiting for secondary threads to shut down" << std::endl;
 	update_thread.join();
+	std::cout << "Update thread has terminated" << std::endl;
 	gen_thread.join();
+	std::cout << "Generation thread has terminated" << std::endl;
 	mesh_thread.join();
+	std::cout << "Meshing thread has terminated" << std::endl;
     }
+
     void destroy(){
 	/*for(const auto& n : chunks){
 	    delete n.second;
@@ -225,7 +189,7 @@ namespace chunkmanager
 	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) continue;
 
 	    ChunkTable::accessor a;
-	    if(!chunks.find(a, calculateIndex(px, py, pz))) continue;
+	    if(!chunks.find(a, Chunk::calculateIndex(px, py, pz))) continue;
 	    Chunk::Chunk* c = a->second;
 	    if(!c->getState(Chunk::CHUNK_STATE_GENERATED) || c->getState(Chunk::CHUNK_STATE_EMPTY)) continue;
 
@@ -254,7 +218,7 @@ namespace chunkmanager
 		    // exit early if the position is invalid or the chunk does not exist
 		    if(px1 < 0 || py1 < 0 || pz1 < 0 || px1 >= 1024 || py1 >= 1024 || pz1 >= 1024) return;
 		    ChunkTable::accessor a1;
-		    if(!chunks.find(a1, calculateIndex(px1, py1, pz1))) return;
+		    if(!chunks.find(a1, Chunk::calculateIndex(px1, py1, pz1))) return;
 		    Chunk::Chunk* c1 = a1->second;
 		    // place the new block (only stone for now)
 		    c1->setBlock((Block)block_to_place, bx1, by1, bz1);
@@ -276,17 +240,17 @@ namespace chunkmanager
 
 		    // When necessary, also mesh nearby chunks
 		    ChunkTable::accessor a1, a2, b1, b2, c1, c2;
-		    if(bx == 0 && px - 1 >= 0 && chunks.find(a1, calculateIndex(px - 1, py, pz)))
+		    if(bx == 0 && px - 1 >= 0 && chunks.find(a1, Chunk::calculateIndex(px - 1, py, pz)))
 		      chunkmesher::mesh(a1->second);
-		    if(by == 0 && py - 1 >= 0 && chunks.find(b1, calculateIndex(px, py - 1, pz)))
+		    if(by == 0 && py - 1 >= 0 && chunks.find(b1, Chunk::calculateIndex(px, py - 1, pz)))
 		      chunkmesher::mesh(b1->second);
-		    if(bz == 0 && pz - 1 >= 0 && chunks.find(c1, calculateIndex(px, py, pz - 1)))
+		    if(bz == 0 && pz - 1 >= 0 && chunks.find(c1, Chunk::calculateIndex(px, py, pz - 1)))
 		      chunkmesher::mesh(c1->second);
-		    if(bx == CHUNK_SIZE - 1 && px +1 < 1024 && chunks.find(a2, calculateIndex(px +1, py, pz)))
+		    if(bx == CHUNK_SIZE - 1 && px +1 < 1024 && chunks.find(a2, Chunk::calculateIndex(px +1, py, pz)))
 		      chunkmesher::mesh(a2->second);
-		    if(by == CHUNK_SIZE - 1 && py +1 < 1024 && chunks.find(b2, calculateIndex(px, py +1, pz)))
+		    if(by == CHUNK_SIZE - 1 && py +1 < 1024 && chunks.find(b2, Chunk::calculateIndex(px, py +1, pz)))
 		      chunkmesher::mesh(b2->second);
-		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, calculateIndex(px, py, pz +1)))
+		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, Chunk::calculateIndex(px, py, pz +1)))
 		      chunkmesher::mesh(c2->second);
 
 		    debug::window::set_parameter("block_last_action", place);
@@ -312,7 +276,7 @@ namespace chunkmanager
 
 	//std::cout << "Block at " << x << ", " << y << ", " << z << " is in chunk " << cx << "," << cy << "," << cz << "\n";
 	ChunkTable::accessor a;
-	if(!chunks.find(a, calculateIndex(cx, cy, cz))) return Block::NULLBLK;
+	if(!chunks.find(a, Chunk::calculateIndex(cx, cy, cz))) return Block::NULLBLK;
 	else {
 	    int bx = x % CHUNK_SIZE;
 	    int by = y % CHUNK_SIZE;
@@ -324,3 +288,4 @@ namespace chunkmanager
 	}
     }
 };
+
