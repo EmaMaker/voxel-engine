@@ -17,9 +17,12 @@
 #define MESHING_PRIORITY_PLAYER_EDIT 10
 #define GENERATION_PRIORITY_NORMAL 0
 
+typedef int16_t chunk_intcoord_t;
+typedef int32_t chunk_index_t;
+
 namespace chunkmanager
 {
-    typedef oneapi::tbb::concurrent_hash_map<uint32_t, Chunk::Chunk*> ChunkTable;
+    typedef oneapi::tbb::concurrent_hash_map<chunk_index_t, Chunk::Chunk*> ChunkTable;
     typedef std::pair<Chunk::Chunk*, uint8_t> ChunkPQEntry;
     // The comparing function to use
     struct compare_f {
@@ -31,12 +34,12 @@ namespace chunkmanager
 
     void init();
     void blockpick(bool place);
-    uint32_t calculateIndex(uint16_t i, uint16_t j, uint16_t k);
+    chunk_index_t calculateIndex(chunk_intcoord_t i, chunk_intcoord_t j, chunk_intcoord_t k);
     
     void stop();
     void destroy();
     oneapi::tbb::concurrent_queue<Chunk::Chunk*>& getDeleteVector();
-    std::array<std::array<int, 3>, chunks_volume>& getChunksIndices();
+    std::array<std::array<chunk_intcoord_t, 3>, chunks_volume>& getChunksIndices();
     Block getBlockAtPos(int x, int y, int z);
     void update();
 }
