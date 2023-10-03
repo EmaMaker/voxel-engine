@@ -13,7 +13,8 @@
 #define RENDER_DISTANCE 16
 
 extr Camera theCamera;
-constexpr int chunks_volume = static_cast<int>(1.333333333333*M_PI*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE));
+// the cube spans in both directions, to each axis has to be multiplied by 2. 2^3=8
+constexpr int chunks_volume = 8*(RENDER_DISTANCE*RENDER_DISTANCE*RENDER_DISTANCE);
 extr bool wireframe;
 
 extr float sines[360];

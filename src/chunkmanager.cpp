@@ -37,47 +37,18 @@ namespace chunkmanager
     int block_to_place{2};
 
     // Init chunkmanager. Chunk indices and start threads
-    int chunks_volume_real;
     void init(){
 	int index{0};
-	int rr{RENDER_DISTANCE * RENDER_DISTANCE};
 
-        chunk_intcoord_t xp{0}, x{0};
-        bool b = true;
+	for(chunk_intcoord_t i = -RENDER_DISTANCE; i < RENDER_DISTANCE; i++)
+	    for(chunk_intcoord_t j = -RENDER_DISTANCE; j < RENDER_DISTANCE; j++)
+		for(chunk_intcoord_t k = -RENDER_DISTANCE; k < RENDER_DISTANCE; k++){
 
-        // Iterate over all chunks, in concentric spheres starting fron the player and going outwards. Alternate left and right
-        // Eq. of the sphere (x - a)² + (y - b)² + (z - c)² = r²
-        while (xp <= RENDER_DISTANCE)
-        {
-	    // Alternate between left and right
-            if (b) x = +xp;
-            else x = -xp;
-
-	    // Step 1. At current x, get the corresponding y values (2nd degree equation, up to 2
-	    // possible results)
-            chunk_intcoord_t y1 = static_cast<chunk_intcoord_t>(sqrt((rr) - x*x));
-
-            for (chunk_intcoord_t y = -y1 + 1 ; y <= y1; y++)
-            {
-                // Step 2. At both y's, get the corresponding z values
-		chunk_intcoord_t z1 = static_cast<chunk_intcoord_t>(sqrt( rr - x*x - y*y));
-
-                for (chunk_intcoord_t z = -z1 + 1; z <= z1; z++){
-		    chunks_indices[index][0] = x;
-		    chunks_indices[index][1] = y;
-		    chunks_indices[index][2] = z;
+		    chunks_indices[index][0]=i;
+		    chunks_indices[index][1]=j;
+		    chunks_indices[index][2]=k;
 		    index++;
 		}
-            }
-
-            if (!b)
-            {
-                xp++;
-                b = true;
-            }
-            else  b = false;
-	}
-	chunks_volume_real = index;
 
 	// Also init mesh data queue
 	for(int i = 0; i < 10; i++)
@@ -124,7 +95,7 @@ namespace chunkmanager
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
 	    // Update other chunks
-	    for(int i = 0; i < chunks_volume_real; i++) {
+	    for(int i = 0; i < chunks_volume; i++) {
 		const chunk_intcoord_t x = chunks_indices[i][0] + chunkX;
 		const chunk_intcoord_t y = chunks_indices[i][1] + chunkY;
 		const chunk_intcoord_t z = chunks_indices[i][2] + chunkZ;
