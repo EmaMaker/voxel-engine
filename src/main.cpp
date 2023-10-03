@@ -99,6 +99,15 @@ int main()
 
         // Camera
         theCamera.update(window, deltaTime);
+	debug::window::set_parameter("px", theCamera.getPos().x);
+	debug::window::set_parameter("py", theCamera.getPos().y);
+	debug::window::set_parameter("pz", theCamera.getPos().z);
+	debug::window::set_parameter("cx", (int)(theCamera.getPos().x / CHUNK_SIZE));
+	debug::window::set_parameter("cy", (int)(theCamera.getPos().y / CHUNK_SIZE));
+	debug::window::set_parameter("cz", (int)(theCamera.getPos().z / CHUNK_SIZE));
+	debug::window::set_parameter("lx", theCamera.getFront().x);
+	debug::window::set_parameter("ly", theCamera.getFront().y);
+	debug::window::set_parameter("lz", theCamera.getFront().z);
 	
 	// Reset blockping timeout if 200ms have passed
 	if(glfwGetTime() - lastBlockPick > 0.1) blockpick = false;

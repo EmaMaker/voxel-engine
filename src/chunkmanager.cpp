@@ -121,16 +121,6 @@ namespace chunkmanager
 	    int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
-	    debug::window::set_parameter("px", theCamera.getAtomicPosX());
-	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
-	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
-	    debug::window::set_parameter("cx", chunkX);
-	    debug::window::set_parameter("cy", chunkY);
-	    debug::window::set_parameter("cz", chunkZ);
-	    debug::window::set_parameter("lx", theCamera.getFront().x);
-	    debug::window::set_parameter("ly", theCamera.getFront().y);
-	    debug::window::set_parameter("lz", theCamera.getFront().z);
-
 	    // Update other chunks
 	    for(int i = 0; i < chunks_volume_real; i++) {
 		const uint16_t x = chunks_indices[i][0] + chunkX;
