@@ -122,7 +122,7 @@ namespace chunkmanager
 		if(x < 0 || y < 0 || z < 0 || x > 1023 || y > 1023 || z > 1023) continue;
 		nExplored++;
 
-		const int32_t index = calculateIndex(x, y, z);
+		const int32_t index = Chunk::calculateIndex(x, y, z);
 		ChunkTable::accessor a;
 		if(!chunks.find(a, index)) chunks.emplace(a, std::make_pair(index, new
 			    Chunk::Chunk(glm::vec3(x,y,z))));
@@ -212,18 +212,6 @@ namespace chunkmanager
 	    debug::window::set_parameter("update_chunks_explored", nExplored);
 	    debug::window::set_parameter("update_chunks_tobedeleted", 0);*/
 	}
-    }
-
-    // uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
-    int32_t calculateIndex(Chunk::Chunk* c){
-	return calculateIndex(c->getPosition());
-    }
-    int32_t calculateIndex(glm::vec3 position){
-	return calculateIndex(static_cast<int16_t>(position.x), static_cast<int16_t>(position.y),
-		static_cast<int16_t>(position.z));
-    }
-    int32_t calculateIndex(int16_t i, int16_t j, int16_t k){
-	 return i | (j << 10) | (k << 20); 
     }
 
     std::array<std::array<int16_t, 3>, chunks_volume>& getChunksIndices(){ return chunks_indices; }

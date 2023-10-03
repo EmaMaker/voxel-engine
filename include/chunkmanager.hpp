@@ -36,9 +36,6 @@ namespace chunkmanager
 
     void init();
     void blockpick(bool place);
-    int32_t calculateIndex(int16_t i, int16_t j, int16_t k);
-    int32_t calculateIndex(Chunk::Chunk* c);
-    int32_t calculateIndex(glm::vec3 position);
     
     void stop();
     void destroy();

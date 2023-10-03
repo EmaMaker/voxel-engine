@@ -15,16 +15,20 @@ namespace Chunk
         return utils::coord3DTo1D(x, y, z, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE);
     }
 
+    int32_t calculateIndex(glm::vec3 pos){
+	return calculateIndex(static_cast<int16_t>(pos.x), static_cast<int16_t>(pos.y),
+		static_cast<int16_t>(pos.z));
+    }
+    int32_t calculateIndex(int16_t x, int16_t y, int16_t z){
+	return x | (y << 10) | (z << 20); 
+    }
+
     Chunk::Chunk(glm::vec3 pos)
     {
         this->position = pos;
         this->setState(CHUNK_STATE_EMPTY, true);
 	this->setBlocks(0, CHUNK_MAX_INDEX, Block::AIR);
-
-	int16_t i = static_cast<int16_t>(pos.x);
-	int16_t j = static_cast<int16_t>(pos.y);
-	int16_t k = static_cast<int16_t>(pos.z);
-	index =  i | (j << 10) | (k << 20); 
+	this->index = calculateIndex(pos);
     }
 
     Block Chunk::getBlock(int x, int y, int z)

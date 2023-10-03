@@ -33,6 +33,8 @@ namespace Chunk
     constexpr uint16_t CHUNK_STATE_IN_DELETING_QUEUE = 128;
 
     int coord3DTo1D(int x, int y, int z);
+    int32_t calculateIndex(int16_t x, int16_t y, int16_t z);
+    int32_t calculateIndex(glm::vec3 pos);
 
     class Chunk
     {
@@ -59,8 +61,9 @@ namespace Chunk
 
     public:
         GLuint VAO{0}, VBO{0}, extentsBuffer{0}, texinfoBuffer{0}, numVertices{0};
-	int32_t getIndex(){ return index; }
 	std::atomic<float> unload_timer{0};
+	// uint32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
+	int32_t getIndex(){ return index; }
 
     private:
         glm::vec3 position{};
