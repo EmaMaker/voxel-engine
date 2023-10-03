@@ -108,6 +108,7 @@ namespace chunkmanager
 		    Chunk::Chunk* c = a->second;
 		    if(chunks.erase(a)){
 			nUnloaded++;
+			renderer::getDeleteIndexQueue().push(index);
 			delete c;
 		    } else std::cout << "failed to delete " << index << std::endl;
 		} else std::cout << "no such element found to delete\n";
@@ -200,17 +201,9 @@ namespace chunkmanager
 	    });
 
 
-	    /*std::cout << "time: " << glfwGetTime() << "\ntotal: " << chunks.size() << "\ngenerated: " << nGenerated << "\nmeshed: "
-		<< nMeshed << "\nunloaded from prev loop: " << nUnloaded << "\nnew marked for
-		unload: " << nMarkUnload << std::endl;
-
-	    debug::window::set_parameter("update_chunks_total", (int) chunks.size());
-	    debug::window::set_parameter("update_chunks_buckets", (int) chunks.bucket_count());
-	    debug::window::set_parameter("update_chunks_freed", nUnloaded);
-	    debug::window::set_parameter("update_chunks_generated", nGenerated);
-	    debug::window::set_parameter("update_chunks_meshed", nMeshed);
-	    debug::window::set_parameter("update_chunks_explored", nExplored);
-	    debug::window::set_parameter("update_chunks_tobedeleted", 0);*/
+	   std::cout << "time: " << glfwGetTime() << "\ntotal: " << chunks.size() << "\ngenerated: " << nGenerated << "\nmeshed: "
+		<< nMeshed << "\nunloaded from prev loop: " << nUnloaded << "\nnew marked for unload: " << nMarkUnload << std::endl;
+	    
 	}
     }
 

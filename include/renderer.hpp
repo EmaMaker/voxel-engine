@@ -26,7 +26,19 @@ namespace renderer{
 
 	    buffers_allocated=true;
 	}
+
+	void deallocateBuffers(){
+	    // Allocate buffers
+	    glDeleteBuffers(1, &VBO);
+	    glDeleteBuffers(1, &extentsBuffer);
+	    glDeleteBuffers(1, &texinfoBuffer);
+	    glDeleteVertexArrays(1, &VAO);
+
+	    buffers_allocated=false;
+	}
     } RenderInfo;
+
+    typedef oneapi::tbb::concurrent_queue<int32_t> IndexQueue;
 
     void init(GLFWwindow* window);
     void send_chunk_to_gpu(ChunkMeshData* mesh_data, RenderInfo* render_info);
@@ -39,6 +51,7 @@ namespace renderer{
 
     Shader* getRenderShader();
     ChunkMeshDataQueue& getMeshDataQueue();
+    IndexQueue& getDeleteIndexQueue();
 
 };
 

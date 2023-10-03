@@ -18,6 +18,7 @@ namespace renderer{
 
     RenderTable ChunksToRender;
     ChunkMeshDataQueue MeshDataQueue;
+    IndexQueue MeshDataToDelete;
 
     Shader* theShader, *quadShader;
     GLuint chunkTexture;
@@ -30,6 +31,7 @@ namespace renderer{
 
     Shader* getRenderShader() { return theShader; }
     ChunkMeshDataQueue& getMeshDataQueue(){ return MeshDataQueue; }
+    IndexQueue& getDeleteIndexQueue(){ return MeshDataToDelete; }
 
     void init(GLFWwindow* window){
 	// Setup rendering
@@ -140,8 +142,6 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
-	// TODO: works but some stuff is rendered wrong (trees floating or inside the terrain,
-	// missing or malformed chunks)
 	ChunkMeshData* m;
 	while(MeshDataQueue.try_pop(m)){
 	    RenderTable::accessor a;
@@ -166,17 +166,26 @@ namespace renderer{
 	}
 
 	// TODO: implement removal of chunks from rendering
-	std::cout << "chunks to render: " << ChunksToRender.size();
+	int32_t queue_index;
+	while(MeshDataToDelete.try_pop(queue_index)){
+	    RenderTable::accessor a;
 
+	    if(ChunksToRender.find(a, queue_index)){
+		RenderInfo* render_info = a->second;
+		render_info->deallocateBuffers();
+		delete render_info;
+		ChunksToRender.erase(a);
+	    }
+	}
 
 	// Render the chunks
 	// parallel_for cannot be used since all the rendering needs to happen in a single thread
 	for(RenderTable::iterator i = ChunksToRender.begin(); i != ChunksToRender.end(); i++){
 	    RenderInfo* render_info = i->second;
 	    
-	    total++;
 	    if(render_info->num_vertices > 0)
 	    {
+		total++;
 
 		// Increase total vertex count
 		vertices += render_info->num_vertices;
@@ -217,8 +226,9 @@ namespace renderer{
 	    }
 	}
 
-	debug::window::set_parameter("render_chunks_total", total);
+	debug::window::set_parameter("render_chunks_total", (int)(ChunksToRender.size()));
 	debug::window::set_parameter("render_chunks_rendered", toGpu);
+	debug::window::set_parameter("render_chunks_renderable", total);
 	debug::window::set_parameter("render_chunks_culled", total-toGpu);
 	debug::window::set_parameter("render_chunks_vertices", vertices);
 
