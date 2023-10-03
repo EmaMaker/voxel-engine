@@ -63,9 +63,9 @@ std::array<TreeCellInfo, TREE_LUT_SIZE*TREE_LUT_SIZE> treeLUT;
 
 void generateNoise(Chunk::Chunk *chunk)
 {
-    int cx = chunk->getPosition().x * CHUNK_SIZE;
-    int cy = chunk->getPosition().y * CHUNK_SIZE;
-    int cz = chunk->getPosition().z * CHUNK_SIZE;
+    int cx = static_cast<int>(chunk->getPosition().x) * CHUNK_SIZE;
+    int cy = static_cast<int>(chunk->getPosition().y) * CHUNK_SIZE;
+    int cz = static_cast<int>(chunk->getPosition().z) * CHUNK_SIZE;
 
     // Precalculate LUTs
 

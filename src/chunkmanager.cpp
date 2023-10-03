@@ -155,7 +155,7 @@ namespace chunkmanager
 
 			// If not yet generated
 			if(!c->getState(Chunk::CHUNK_STATE_GENERATED)){
-			    if(!c->getState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE)){
+			    if(c->isFree()){
 				// Generate
 				c->setState(Chunk::CHUNK_STATE_IN_GENERATION_QUEUE, true);
 				chunks_to_generate_queue.push(std::make_pair(c, GENERATION_PRIORITY_NORMAL));
@@ -165,7 +165,7 @@ namespace chunkmanager
 			    // If generated but not yet meshed
 			    // TODO: not getting meshed
 			    if(!c->getState(Chunk::CHUNK_STATE_MESHED)){
-				if(!c->getState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE)){
+				if(c->isFree()){
 				    // Mesh
 				    c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
 				    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
@@ -181,6 +181,7 @@ namespace chunkmanager
 			if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
 			    // If enough time has passed, set to be deleted
 			    if(c->isFree() && glfwGetTime() - c->unload_timer >= UNLOAD_TIMEOUT){
+				c->setState(Chunk::CHUNK_STATE_IN_DELETING_QUEUE, true);
 				chunks_todelete.push(c->getIndex());
 				unload++;
 			    }
@@ -199,17 +200,9 @@ namespace chunkmanager
 	    });
 
 
-	    std::cout << "time: " << glfwGetTime() << "\ntotal: " << chunks.size() << "\ngenerated: " << nGenerated << "\nmeshed: "
-		<< nMeshed << "\nunloaded from prev loop: " << nUnloaded << "\nnew marked for unload: " << nMarkUnload << std::endl;
-	    /*debug::window::set_parameter("px", theCamera.getAtomicPosX());
-	    debug::window::set_parameter("py", theCamera.getAtomicPosY());
-	    debug::window::set_parameter("pz", theCamera.getAtomicPosZ());
-	    debug::window::set_parameter("cx", chunkX);
-	    debug::window::set_parameter("cy", chunkY);
-	    debug::window::set_parameter("cz", chunkZ);
-	    debug::window::set_parameter("lx", theCamera.getFront().x);
-	    debug::window::set_parameter("ly", theCamera.getFront().y);
-	    debug::window::set_parameter("lz", theCamera.getFront().z);
+	    /*std::cout << "time: " << glfwGetTime() << "\ntotal: " << chunks.size() << "\ngenerated: " << nGenerated << "\nmeshed: "
+		<< nMeshed << "\nunloaded from prev loop: " << nUnloaded << "\nnew marked for
+		unload: " << nMarkUnload << std::endl;
 
 	    debug::window::set_parameter("update_chunks_total", (int) chunks.size());
 	    debug::window::set_parameter("update_chunks_buckets", (int) chunks.bucket_count());
