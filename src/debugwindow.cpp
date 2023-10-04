@@ -95,18 +95,15 @@ namespace debug{
 		}
 
 		if(ImGui::CollapsingHeader("Mesh")){
-		    ImGui::Text("Total chunks updated: %d",
+		    ImGui::Text("Total chunk meshed: %d",
 			    std::any_cast<int>(parameters.at("render_chunks_total")));
+		    ImGui::Text("Of which renderable (not empty): %d",
+			    std::any_cast<int>(parameters.at("render_chunks_renderable")));
 		    ImGui::Text("Chunks rendered: %d",
 			std::any_cast<int>(parameters.at("render_chunks_rendered")));
 		    ImGui::Text("Frustum culled: %d",
 			std::any_cast<int>(parameters.at("render_chunks_culled")));
-		    ImGui::Text("Chunks out of view: %d",
-			std::any_cast<int>(parameters.at("render_chunks_oof")));
-		    if(parameters.find("render_chunks_deleted") != parameters.end())
-			ImGui::Text("Chunks deleted: %d",
-			    std::any_cast<int>(parameters.at("render_chunks_deleted")));
-		    ImGui::Text("Vertices in the scene: %d",
+		    ImGui::Text("Total vertices in the scene: %d",
 			std::any_cast<int>(parameters.at("render_chunks_vertices")));
 		    ImGui::Checkbox("Wireframe",
 			    std::any_cast<bool*>(parameters.at("wireframe_return")));

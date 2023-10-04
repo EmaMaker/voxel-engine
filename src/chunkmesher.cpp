@@ -51,7 +51,6 @@ void mesh(Chunk::Chunk* chunk)
     mesh_data->index = chunk->getIndex();
     mesh_data->position = chunk->getPosition();
 
-
     // convert tree to array since it is easier to work with it
     int length{0};
     std::unique_ptr<Block[]> blocks;

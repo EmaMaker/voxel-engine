@@ -81,7 +81,6 @@ namespace chunkmanager
 	    if(chunks_to_mesh_queue.try_pop(entry)){
 		Chunk::Chunk* chunk = entry.first;
 		chunkmesher::mesh(chunk);
-		renderer::getChunksToRender().insert(chunk);
 		chunk->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, false);
 	    }
 	}
