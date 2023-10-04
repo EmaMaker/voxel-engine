@@ -151,6 +151,11 @@ namespace renderer{
 		render_info = a->second;
 		render_info->position = m->position;
 		render_info->num_vertices = m->num_vertices;
+
+		// Always updated the mesh, even if it's empty
+		// This should solve the problem of having floating quads when destroying a block
+		// near chunk borders
+		send_chunk_to_gpu(m, render_info);
 	    }else{
 		render_info = new RenderInfo();
 		render_info->index = m->index;
@@ -158,9 +163,11 @@ namespace renderer{
 		render_info->num_vertices = m->num_vertices;
 
 		ChunksToRender.emplace(a, std::make_pair(render_info->index, render_info));
+
+		// Only send the mesh to the GPU if it's not empty
+		if(render_info->num_vertices > 0) send_chunk_to_gpu(m, render_info);
 	    }
 
-	    send_chunk_to_gpu(m, render_info);
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
 
@@ -254,35 +261,32 @@ namespace renderer{
 
     void send_chunk_to_gpu(ChunkMeshData* mesh_data, RenderInfo* render_info)
     {
-	if (render_info->num_vertices > 0)
-	{
-	    if(!render_info->buffers_allocated) render_info->allocateBuffers();
+	if(!render_info->buffers_allocated) render_info->allocateBuffers();
 
-	    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
-	    glBindVertexArray(render_info->VAO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(render_info->VAO);
 
-	    // TODO: change GL_STATIC_DRAW to the one that means "few redraws and further in between"
+	// TODO: change GL_STATIC_DRAW to the one that means "few redraws and further in between"
 
-	    // position attribute
-	    glBindBuffer(GL_ARRAY_BUFFER, render_info->VBO);
-	    glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
-	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-	    glEnableVertexAttribArray(0);
+	// position attribute
+	glBindBuffer(GL_ARRAY_BUFFER, render_info->VBO);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	glEnableVertexAttribArray(0);
 
-	    // normal attribute
-	    glBindBuffer(GL_ARRAY_BUFFER, render_info->extentsBuffer);
-	    glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
-	    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
-	    glEnableVertexAttribArray(1);
+	// normal attribute
+	glBindBuffer(GL_ARRAY_BUFFER, render_info->extentsBuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
+	glEnableVertexAttribArray(1);
 
-	    // texcoords attribute
-	    glBindBuffer(GL_ARRAY_BUFFER, render_info->texinfoBuffer);
-	    glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
-	    glEnableVertexAttribArray(2);
-	    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+	// texcoords attribute
+	glBindBuffer(GL_ARRAY_BUFFER, render_info->texinfoBuffer);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
 
-	    glBindVertexArray(0);
-	}
+	glBindVertexArray(0);
     }
 
 
