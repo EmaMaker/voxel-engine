@@ -51,27 +51,22 @@ void mesh(Chunk::Chunk* chunk)
     mesh_data->index = chunk->getIndex();
     mesh_data->position = chunk->getPosition();
 
-    // Abort if chunk is empty
-    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)){
-	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
-	renderer::getMeshDataQueue().push(mesh_data);
-	return;
-    }
 
     // convert tree to array since it is easier to work with it
     int length{0};
-    std::unique_ptr<Block[]> blocks = chunk->getBlocksArray(&length);
-    if(length == 0) {
-	chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
-	renderer::getMeshDataQueue().push(mesh_data);
-	return;
-    }
-    
+    std::unique_ptr<Block[]> blocks;
+
     int k, l, u, v, w, h, n, j, i;
     int x[]{0, 0, 0};
     int q[]{0, 0, 0};
     int du[]{0, 0, 0};
     int dv[]{0, 0, 0};
+
+    // Abort if chunk is empty
+    if(chunk->getState(Chunk::CHUNK_STATE_EMPTY)) goto end;
+
+    blocks = chunk->getBlocksArray(&length);
+    if(length == 0) goto end;
 
     std::array<Block, CHUNK_SIZE * CHUNK_SIZE> mask;
     for (bool backFace = true, b = false; b != backFace; backFace = backFace && b, b = !b)
@@ -227,6 +222,7 @@ void mesh(Chunk::Chunk* chunk)
         }
     }
 
+end:
     chunk->setState(Chunk::CHUNK_STATE_MESHED, true);
     renderer::getMeshDataQueue().push(mesh_data);
 }
