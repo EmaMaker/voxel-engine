@@ -130,7 +130,6 @@ int main()
     // Cleanup allocated memory
     chunkmanager::destroy();
     renderer::destroy();
-    debug::window::destroy();
 
     glfwTerminate();
     return 0;
