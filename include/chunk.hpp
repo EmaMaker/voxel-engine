@@ -52,9 +52,6 @@ namespace Chunk
         ~Chunk();
 
     public:
-	void createBuffers();
-	void deleteBuffers();
-
         glm::vec3 getPosition() { return this->position; }
         void setState(chunk_state_t nstate, bool value);
         bool getState(chunk_state_t n) { return (this->state & n) == n; }
@@ -72,7 +69,6 @@ namespace Chunk
 	std::unique_ptr<Block[]> getBlocksArray(int* len) { return (this->blocks.toArray(len)); }
 
     public:
-        GLuint VAO{0}, VBO{0}, extentsBuffer{0}, texinfoBuffer{0}, numVertices{0};
 	std::atomic<float> unload_timer{0};
 	chunk_index_t getIndex(){ return this->index; }
 

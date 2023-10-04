@@ -69,6 +69,7 @@ int main()
     SpaceFilling::initLUT();
     controls::init();
     chunkmanager::init();
+    chunkmesher::init();
     debug::window::init(window);
     renderer::init(window);
 

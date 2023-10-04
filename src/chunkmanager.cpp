@@ -53,10 +53,6 @@ namespace chunkmanager
 		    index++;
 		}
 
-	// Also init mesh data queue
-	for(int i = 0; i < 10; i++)
-	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
-
 	should_run = true;
 	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
@@ -85,7 +81,6 @@ namespace chunkmanager
 	    if(chunks_to_mesh_queue.try_pop(entry)){
 		Chunk::Chunk* chunk = entry.first;
 		chunkmesher::mesh(chunk);
-		renderer::getChunksToRender().insert(chunk);
 		chunk->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, false);
 	    }
 	}
@@ -117,6 +112,7 @@ namespace chunkmanager
 		    // Using the key doesn't work
 		    if(chunks.erase(a)){
 			nUnloaded++;
+			renderer::getDeleteIndexQueue().push(index);
 			delete c;
 		    } else {
 			c->setState(Chunk::CHUNK_STATE_IN_DELETING_QUEUE, false);

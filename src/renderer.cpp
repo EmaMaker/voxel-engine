@@ -1,7 +1,8 @@
 #include "renderer.hpp"
 
-#include <oneapi/tbb/concurrent_vector.h>
-#include <oneapi/tbb/concurrent_queue.h>
+#include <glm/ext.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <oneapi/tbb/concurrent_hash_map.h>
 
 #include "chunkmanager.hpp"
 #include "chunkmesher.hpp"
@@ -12,16 +13,18 @@
 #include "stb_image_write.h"
 
 namespace renderer{
-    RenderSet chunks_torender;
-    oneapi::tbb::concurrent_vector<Chunk::Chunk*> render_todelete;
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*> MeshDataQueue;
+    typedef oneapi::tbb::concurrent_hash_map<chunk_index_t, RenderInfo*> RenderTable;
+
+    RenderTable ChunksToRender;
+    ChunkMeshDataQueue MeshDataQueue;
+    IndexQueue MeshDataToDelete;
 
     Shader* theShader, *quadShader;
     GLuint chunkTexture;
 
     Shader* getRenderShader() { return theShader; }
-    RenderSet& getChunksToRender(){ return chunks_torender; }
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
+    ChunkMeshDataQueue& getMeshDataQueue(){ return MeshDataQueue; }
+    IndexQueue& getDeleteIndexQueue(){ return MeshDataToDelete; }
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
@@ -138,98 +141,95 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
-	chunkmesher::MeshData* m;
+	/* Process incoming mesh data */
+	ChunkMeshData* m;
 	while(MeshDataQueue.try_pop(m)){
-	    //chunkmesher::sendtogpu(m);
+	    RenderTable::accessor a;
+	    RenderInfo* render_info;
+
+	    if(ChunksToRender.find(a, m->index)){
+		render_info = a->second;
+		render_info->position = m->position;
+		render_info->num_vertices = m->num_vertices;
+	    }else{
+		render_info = new RenderInfo();
+		render_info->index = m->index;
+		render_info->position = m->position;
+		render_info->num_vertices = m->num_vertices;
+
+		ChunksToRender.emplace(a, std::make_pair(render_info->index, render_info));
+	    }
+
+	    send_chunk_to_gpu(m, render_info);
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
 
-	/*
-	for(auto& c : chunks_torender){
-	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
-	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
-		if(!c->getState(Chunk::CHUNK_STATE_MESH_LOADED)) continue;
+	/* Process chunks to be removed */
+	chunk_index_t queue_index;
+	while(MeshDataToDelete.try_pop(queue_index)){
+	    RenderTable::accessor a;
 
-		if(c->numVertices > 0){
-		    // Increase total vertex count
-		    vertices += c->numVertices;
-
-		    // reset out-of-vision and unload flags
-		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, false);
-		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-
-		    // Perform frustum culling and eventually render
-		    glm::vec3 chunk = c->getPosition();
-		    glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
-		    glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
-
-		    // Check if all the corners of the chunk are outside any of the planes
-		    // TODO (?) implement frustum culling as per (Inigo Quilez)[https://iquilezles.org/articles/frustumcorrect/], and check each
-		    // plane against each corner of the chunk 
-		    bool out=false;
-		    int a{0};
-		    for(int p = 0; p < 6; p++){
-			a = 0;
-			for(int i = 0; i < 8; i++)  a += glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
-					+ ((float)((i & 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >> 2))*CHUNK_SIZE, 1.0)) < 0.0;
-
-			if(a==8){
-			    out=true;
-			    break;
-			}
-		    }
-
-		    if (!out)
-		    {
-			theShader->setMat4("model", model);
-			theShader->setMat4("view", theCamera.getView());
-			theShader->setMat4("projection", theCamera.getProjection());
-
-			glBindVertexArray(c->VAO);
-			glDrawArrays(GL_POINTS, 0, c->numVertices);
-			glBindVertexArray(0);
-
-			toGpu++;
-		    }
-		}
-	    }else{
-		// When the chunk is outside render distance
-
-		if(c->getState(Chunk::CHUNK_STATE_OUTOFVISION)){
-		    oof++;
-		    if(glfwGetTime() - c->unload_timer > UNLOAD_TIMEOUT){
-			// If chunk was already out and enough time has passed
-			// Mark the chunk to be unloaded
-			// And mark is to be removed from the render set
-			render_todelete.push_back(c);
-		    }
-		} else{
-		    // Mark has out of vision and annotate when it started
-		    c->setState(Chunk::CHUNK_STATE_OUTOFVISION, true);
-		    c->setState(Chunk::CHUNK_STATE_UNLOADED, false);
-		    c->unload_timer = glfwGetTime();
-		}
-		
+	    if(ChunksToRender.find(a, queue_index)){
+		RenderInfo* render_info = a->second;
+		render_info->deallocateBuffers();
+		delete render_info;
+		ChunksToRender.erase(a);
 	    }
 	}
-	*/
 
-	total = chunks_torender.size();
-	debug::window::set_parameter("render_chunks_total", total);
-	debug::window::set_parameter("render_chunks_rendered", toGpu);
-	debug::window::set_parameter("render_chunks_culled", total-toGpu);
-	debug::window::set_parameter("render_chunks_oof", oof);
-	debug::window::set_parameter("render_chunks_deleted", (int) (render_todelete.size()));
-	debug::window::set_parameter("render_chunks_vertices", vertices);
+	/* Render the chunks */
+	// parallel_for cannot be used since all the rendering needs to happen in a single thread
+	for(RenderTable::iterator i = ChunksToRender.begin(); i != ChunksToRender.end(); i++){
+	    RenderInfo* render_info = i->second;
 
-	/*for(auto& c : render_todelete){
-	    // we can get away with unsafe erase as access to the container is only done by this
-	    // thread
-	    c->deleteBuffers();
-	    chunks_torender.unsafe_erase(c);
-	    chunkmanager::getDeleteVector().push(c);
+	    if(render_info->num_vertices > 0)
+	    {
+		total++;
+
+		// Increase total vertex count
+		vertices += render_info->num_vertices;
+
+		// Perform frustum culling and eventually render
+		glm::vec3 chunk = render_info->position;
+		glm::vec4 chunkW = glm::vec4(chunk.x*static_cast<float>(CHUNK_SIZE), chunk.y*static_cast<float>(CHUNK_SIZE), chunk.z*static_cast<float>(CHUNK_SIZE),1.0);
+		glm::mat4 model = glm::translate(glm::mat4(1.0), ((float)CHUNK_SIZE) * chunk);
+
+		// Check if all the corners of the chunk are outside any of the planes
+		// TODO (?) implement frustum culling as per (Inigo Quilez)[https://iquilezles.org/articles/frustumcorrect/], and check each
+		// plane against each corner of the chunk
+		bool out=false;
+		int a{0};
+		for(int p = 0; p < 6; p++){
+		    a = 0;
+		    for(int i = 0; i < 8; i++)  a += glm::dot(frustumPlanes[p], glm::vec4(chunkW.x + ((float)(i & 1))*CHUNK_SIZE, chunkW.y
+				    + ((float)((i & 2) >> 1))*CHUNK_SIZE, chunkW.z + ((float)((i & 4) >> 2))*CHUNK_SIZE, 1.0)) < 0.0;
+
+		    if(a==8){
+			out=true;
+			break;
+		    }
+		}
+
+		if (!out)
+		{
+		    theShader->setMat4("model", model);
+		    theShader->setMat4("view", theCamera.getView());
+		    theShader->setMat4("projection", theCamera.getProjection());
+
+		    glBindVertexArray(render_info->VAO);
+		    glDrawArrays(GL_POINTS, 0, render_info->num_vertices);
+		    glBindVertexArray(0);
+
+		    toGpu++;
+		}
+	    }
 	}
-	render_todelete.clear();*/
+
+	debug::window::set_parameter("render_chunks_total", (int)(ChunksToRender.size()));
+	debug::window::set_parameter("render_chunks_rendered", toGpu);
+	debug::window::set_parameter("render_chunks_renderable", total);
+	debug::window::set_parameter("render_chunks_culled", total-toGpu);
+	debug::window::set_parameter("render_chunks_vertices", vertices);
 
 	/* DISPLAY TEXTURE ON A QUAD THAT FILLS THE SCREEN */
 	// Now to render the quad, with the texture on top
@@ -251,6 +251,40 @@ namespace renderer{
 
 	debug::window::render();
     }
+
+    void send_chunk_to_gpu(ChunkMeshData* mesh_data, RenderInfo* render_info)
+    {
+	if (render_info->num_vertices > 0)
+	{
+	    if(!render_info->buffers_allocated) render_info->allocateBuffers();
+
+	    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	    glBindVertexArray(render_info->VAO);
+
+	    // TODO: change GL_STATIC_DRAW to the one that means "few redraws and further in between"
+
+	    // position attribute
+	    glBindBuffer(GL_ARRAY_BUFFER, render_info->VBO);
+	    glBufferData(GL_ARRAY_BUFFER, mesh_data->vertices.size() * sizeof(GLfloat), &(mesh_data->vertices[0]), GL_STATIC_DRAW);
+	    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+	    glEnableVertexAttribArray(0);
+
+	    // normal attribute
+	    glBindBuffer(GL_ARRAY_BUFFER, render_info->extentsBuffer);
+	    glBufferData(GL_ARRAY_BUFFER, mesh_data->extents.size() * sizeof(GLfloat), &(mesh_data->extents[0]), GL_STATIC_DRAW);
+	    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)(0));
+	    glEnableVertexAttribArray(1);
+
+	    // texcoords attribute
+	    glBindBuffer(GL_ARRAY_BUFFER, render_info->texinfoBuffer);
+	    glBufferData(GL_ARRAY_BUFFER, mesh_data->texinfo.size() * sizeof(GLfloat), &(mesh_data->texinfo[0]), GL_STATIC_DRAW);
+	    glEnableVertexAttribArray(2);
+	    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+
+	    glBindVertexArray(0);
+	}
+    }
+
 
     void framebuffer_size_callback(GLFWwindow *window, int width, int height){
 	resize_framebuffer(width, height);
