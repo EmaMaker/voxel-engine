@@ -79,6 +79,11 @@ namespace debug{
 		    ImGui::Text("Pointing in direction: %f, %f, %f", 
 			    std::any_cast<float>(parameters.at("lx")),std::any_cast<float>(parameters.at("ly")),std::any_cast<float>(parameters.at("lz"))  );
 
+		    ImGui::SliderInt("Crosshair type",
+			    std::any_cast<int*>(parameters.at("crosshair_type_return")), 0, 1);
+		    ImGui::SliderInt("Block to place",
+			    std::any_cast<int*>(parameters.at("block_type_return")), 2, 6);
+
 		    if(parameters.find("block_last_action") != parameters.end()){
 			ImGui::Text("Last Block action: %s",
 			    std::any_cast<bool>(parameters.at("block_last_action")) ? "place" : "destroy");
@@ -87,11 +92,6 @@ namespace debug{
 			ImGui::Text("Last Block action position: X: %d, Y: %d, Z: %d",
 			    std::any_cast<int>(parameters.at("block_last_action_x")),std::any_cast<int>(parameters.at("block_last_action_y")),std::any_cast<int>(parameters.at("block_last_action_z"))  );
 		    }
-
-		    ImGui::SliderInt("Crosshair type",
-			    std::any_cast<int*>(parameters.at("crosshair_type_return")), 0, 1);
-		    ImGui::SliderInt("Block to place",
-			    std::any_cast<int*>(parameters.at("block_type_return")), 2, 6);
 		}
 
 		if(ImGui::CollapsingHeader("Mesh")){

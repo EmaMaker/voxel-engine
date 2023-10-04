@@ -2,15 +2,21 @@
 
 #include "camera.hpp"
 #include "chunkmanager.hpp"
+#include "debugwindow.hpp"
 #include "globals.hpp"
 #include "renderer.hpp"
 
 namespace controls{
+    /* Block picking */
+    int block_to_place{2};
     float lastBlockPick=0.0;
     bool blockpick = false;
+
+    /* Cursor */
     bool cursor = false;
 
     void init(){
+	debug::window::set_parameter("block_type_return", &block_to_place);
     }
     
     void update(GLFWwindow* window){
@@ -43,6 +49,7 @@ namespace controls{
 	    msg.time = current_time;
 	    msg.msg_type = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS ?
 	    WorldUpdateMsgType::BLOCKPICK_PLACE : WorldUpdateMsgType::BLOCKPICK_BREAK;
+	    msg.block = (Block)(block_to_place);
 
 	    // Send to chunk manager
 	    chunkmanager::getWorldUpdateQueue().push(msg);
