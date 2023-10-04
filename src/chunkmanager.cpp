@@ -20,13 +20,19 @@
 
 namespace chunkmanager
 {
+    void blockpick(WorldUpdateMsg& msg); // There's no need of passing by value again (check
+					 // controls.cpp)
     void generate();
     void mesh();
 
+    /* Chunk holding data structures */
     // Concurrent hash table of chunks
     ChunkTable chunks;
     // Chunk indices. Centered at (0,0,0), going in concentric sphere outwards
     std::array<std::array<chunk_intcoord_t, 3>, chunks_volume> chunks_indices;
+
+    /* World Update messaging data structure */
+    WorldUpdateMsgQueue WorldUpdateQueue;
 
     /* Multithreading */
     std::atomic_bool should_run;
@@ -37,8 +43,8 @@ namespace chunkmanager
     // Queue of chunks to be meshed
     ChunkPriorityQueue chunks_to_mesh_queue;
 
-    int block_to_place{2};
-
+    WorldUpdateMsgQueue& getWorldUpdateQueue(){ return WorldUpdateQueue; }
+    
     // Init chunkmanager. Chunk indices and start threads
     void init(){
 	int index{0};
@@ -57,8 +63,6 @@ namespace chunkmanager
 	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
 	mesh_thread = std::thread(mesh);
-
-	debug::window::set_parameter("block_type_return", &block_to_place);
     }
 
     // Method for world generation thread(s)
@@ -97,15 +101,27 @@ namespace chunkmanager
 	    std::atomic_int chunkY=static_cast<int>(theCamera.getAtomicPosY() / CHUNK_SIZE);
 	    std::atomic_int chunkZ=static_cast<int>(theCamera.getAtomicPosZ() / CHUNK_SIZE);
 
+	    /* Process update messages before anything happens */
+	    WorldUpdateMsg msg;
+	    while(WorldUpdateQueue.try_pop(msg)){
+		switch(msg.msg_type){
+		    case WorldUpdateMsgType::BLOCKPICK_BREAK:
+		    case WorldUpdateMsgType::BLOCKPICK_PLACE:
+			blockpick(msg);
+			break;
+		}
+	    }
+
+
 	    /* Delete old chunks */
 	    // In my head it makes sense to first delete old chunks, then create new ones
 	    // I think it's easier for memory allocator to re-use the memory that was freed just
 	    // before, but this isn't backed be any evidence and I might be wrong. Anyway this way
 	    // works fine so I'm gonna keep it.
-	    int i;
+	    chunk_index_t i;
 	    ChunkTable::accessor a;
 	    while(chunks_todelete.try_pop(i)){
-		const int index = i;
+		const chunk_index_t index = i;
 		if(chunks.find(a, index)){
 		    Chunk::Chunk* c = a->second;
 		    // Use the accessor to erase the element
@@ -255,13 +271,12 @@ namespace chunkmanager
 	chunks.clear();
     }
 
-    /*void blockpick(bool place){
+    void blockpick(WorldUpdateMsg& msg){
 	// cast a ray from the camera in the direction pointed by the camera itself
-	glm::vec3 pos = glm::vec3(theCamera.getAtomicPosX(), theCamera.getAtomicPosY(),
-		theCamera.getAtomicPosZ());
+	glm::vec3 pos = msg.cameraPos;
 	for(float t = 0.0; t <= 10.0; t += 0.5){
 	    // traverse the ray a block at the time
-	    pos = theCamera.getPos() + t * theCamera.getFront();
+	    pos = msg.cameraPos + t*msg.cameraFront;
 
 	    // get which chunk and block the ray is at
 	    int px = ((int)(pos.x))/CHUNK_SIZE;
@@ -286,7 +301,7 @@ namespace chunkmanager
 	    if(b != Block::AIR){
 
 		// if placing a new block
-		if(place){
+		if(msg.msg_type == WorldUpdateMsgType::BLOCKPICK_PLACE){
 		    // Go half a block backwards on the ray, to check the block where the ray was
 		    // coming from
 		    // Doing this and not using normal adds the unexpected (and unwanted) ability to
@@ -307,14 +322,14 @@ namespace chunkmanager
 		    if(!chunks.find(a1, Chunk::calculateIndex(px1, py1, pz1))) return;
 		    Chunk::Chunk* c1 = a1->second;
 		    // place the new block (only stone for now)
-		    c1->setBlock((Block)block_to_place, bx1, by1, bz1);
+		    c1->setBlock(msg.block, bx1, by1, bz1);
 
 		    // mark the mesh of the chunk the be updated
 		    chunks_to_mesh_queue.push(std::make_pair(c1, MESHING_PRIORITY_PLAYER_EDIT));
 		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
 
-		    debug::window::set_parameter("block_last_action", place);
-		    debug::window::set_parameter("block_last_action_block_type", (int)(Block::STONE));
+		    debug::window::set_parameter("block_last_action", true);
+		    debug::window::set_parameter("block_last_action_block_type", (int)(msg.block));
 		    debug::window::set_parameter("block_last_action_x", px1*CHUNK_SIZE + bx1);
 		    debug::window::set_parameter("block_last_action_y", px1*CHUNK_SIZE + by1);
 		    debug::window::set_parameter("block_last_action_z", px1*CHUNK_SIZE + bz1);
@@ -339,7 +354,7 @@ namespace chunkmanager
 		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, Chunk::calculateIndex(px, py, pz +1)))
 		      chunkmesher::mesh(c2->second);
 
-		    debug::window::set_parameter("block_last_action", place);
+		    debug::window::set_parameter("block_last_action", false);
 		    debug::window::set_parameter("block_last_action_block_type", (int) (Block::AIR));
 		    debug::window::set_parameter("block_last_action_x", px*CHUNK_SIZE + bx);
 		    debug::window::set_parameter("block_last_action_y", py*CHUNK_SIZE + by);
@@ -349,7 +364,7 @@ namespace chunkmanager
 		break;
 	    }
 	}
-    }*/
+    }
 
     Block getBlockAtPos(int x, int y, int z){
 	if(x < 0 || y < 0 || z < 0) return Block::NULLBLK;

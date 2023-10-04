@@ -1,14 +1,14 @@
 #ifndef CHUNKMANAGER_H
 #define CHUNKMANAGER_H
 
-#include "chunk.hpp"
-
 #include <oneapi/tbb/concurrent_hash_map.h>
 #include <oneapi/tbb/concurrent_queue.h>
 #include <oneapi/tbb/concurrent_priority_queue.h>
 #include <thread>
 
+#include "chunk.hpp"
 #include "globals.hpp"
+#include "worldupdatemessage.h"
 
 // Seconds to be passed outside of render distance for a chunk to be destroyed
 #define UNLOAD_TIMEOUT 10
@@ -30,13 +30,12 @@ namespace chunkmanager
     typedef oneapi::tbb::concurrent_priority_queue<ChunkPQEntry, compare_f> ChunkPriorityQueue;
 
     void init();
-    //void blockpick(bool place);
-    
+    void update();
     void stop();
     void destroy();
+    WorldUpdateMsgQueue& getWorldUpdateQueue();
     std::array<std::array<chunk_intcoord_t, 3>, chunks_volume>& getChunksIndices();
     Block getBlockAtPos(int x, int y, int z);
-    void update();
 }
 
 #endif

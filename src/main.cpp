@@ -1,6 +1,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "main.hpp"
+
 #include <iostream>
 #include <thread>
 
@@ -98,6 +100,8 @@ int main()
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 	    glfwSetWindowShouldClose(window, true);
 	// the rest of input processing is handled by controls.cpp
+
+        // Input processing
 	controls::update(window);
 
         // Camera
