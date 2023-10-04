@@ -12,6 +12,7 @@
 #include "utils.hpp"
 
 #define CHUNK_MESH_DATA_QUANTITY 100
+#define CHUNK_MESH_WORLD_LIMIT_BORDERS 0
 
 namespace chunkmesher{
 
@@ -129,9 +130,15 @@ void mesh(Chunk::Chunk* chunk)
 			// The else case provides face culling for adjacent solid faces
 			// Checking for NULLBLK avoids creating empty faces if nearby chunk was not
 			// yet generated
+#if CHUNK_MESH_WORLD_LIMIT_BORDERS == 1
 			mask[n++] = b1 == b2 ? Block::NULLBLK
                                     : backFace ? b1 == Block::NULLBLK || b1 == Block::AIR ? b2 : Block::NULLBLK
                                     : b2 == Block::NULLBLK || b2 == Block::AIR ? b1 : Block::NULLBLK;
+#else
+			mask[n++] = b1 == b2 ? Block::NULLBLK
+                                    : backFace ? b1 == Block::AIR ? b2 : Block::NULLBLK
+                                    : b2 == Block::AIR ? b1 : Block::NULLBLK;
+#endif
                     }
                 }
 
