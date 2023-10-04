@@ -38,6 +38,9 @@ namespace Chunk
     constexpr chunk_state_t CHUNK_STATE_OUTOFVISION = 16;
     constexpr chunk_state_t CHUNK_STATE_UNLOADED = 32;
     constexpr chunk_state_t CHUNK_STATE_EMPTY = 64;
+    constexpr chunk_state_t CHUNK_STATE_IN_GENERATION_QUEUE = 128;
+    constexpr chunk_state_t CHUNK_STATE_IN_MESHING_QUEUE = 256;
+    constexpr chunk_state_t CHUNK_STATE_IN_DELETING_QUEUE = 512;
 
     int coord3DTo1D(int x, int y, int z);
 
@@ -53,9 +56,14 @@ namespace Chunk
 	void deleteBuffers();
 
         glm::vec3 getPosition() { return this->position; }
-        chunk_state_t getTotalState() { return this->state; }
-        bool getState(chunk_state_t n) { return (this->state & n) == n; }
         void setState(chunk_state_t nstate, bool value);
+        bool getState(chunk_state_t n) { return (this->state & n) == n; }
+	bool isFree(){ return !(
+		this->getState(CHUNK_STATE_IN_GENERATION_QUEUE) ||
+		this->getState(CHUNK_STATE_IN_MESHING_QUEUE) ||
+		this->getState(CHUNK_STATE_IN_DELETING_QUEUE)
+		); }
+        chunk_state_t getTotalState() { return this->state; }
 
         void setBlock(Block b, int x, int y, int z);
         void setBlocks(int start, int end, Block b);
