@@ -112,10 +112,14 @@ namespace debug{
 		if(ImGui::CollapsingHeader("Chunks")){
 		    ImGui::Text("Total chunks present: %d",
 			std::any_cast<int>(parameters.at("update_chunks_total")));
-		    /*ImGui::Text("Chunks freed from memory: %d",
-			std::any_cast<int>(parameters.at("update_chunks_delete")));*/
-		    ImGui::Text("Bucket size: %d",
-			std::any_cast<int>(parameters.at("update_chunks_bucket")));
+		    ImGui::Text("Chunks generated: %d",
+			std::any_cast<int>(parameters.at("update_chunks_generated")));
+		    ImGui::Text("Chunks meshed: %d",
+			std::any_cast<int>(parameters.at("update_chunks_meshed")));
+		    ImGui::Text("Chunks actually freed from memory: %d",
+			std::any_cast<int>(parameters.at("update_chunks_freed")));
+		    ImGui::Text("Chunks explored: %d",
+			std::any_cast<int>(parameters.at("update_chunks_explored")));
 		}
 	    }catch(const std::bad_any_cast& e){
 		std::cout << e.what() << std::endl;

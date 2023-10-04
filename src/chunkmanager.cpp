@@ -247,6 +247,11 @@ namespace chunkmanager
 		}
 	    });
 
+	    debug::window::set_parameter("update_chunks_total", (int)chunks.size());
+	    debug::window::set_parameter("update_chunks_generated", (int) nGenerated);
+	    debug::window::set_parameter("update_chunks_meshed", (int) nMeshed);
+	    debug::window::set_parameter("update_chunks_freed", (int) nUnloaded);
+	    debug::window::set_parameter("update_chunks_explored", (int) nExplored);
 	}
     }
 
