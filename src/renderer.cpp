@@ -14,14 +14,14 @@
 namespace renderer{
     RenderSet chunks_torender;
     oneapi::tbb::concurrent_vector<Chunk::Chunk*> render_todelete;
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*> MeshDataQueue;
+    ChunkMeshDataQueue MeshDataQueue;
 
     Shader* theShader, *quadShader;
     GLuint chunkTexture;
 
     Shader* getRenderShader() { return theShader; }
     RenderSet& getChunksToRender(){ return chunks_torender; }
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue(){ return MeshDataQueue; }
+    ChunkMeshDataQueue& getMeshDataQueue(){ return MeshDataQueue; }
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
@@ -138,7 +138,7 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
-	chunkmesher::MeshData* m;
+	ChunkMeshData* m;
 	while(MeshDataQueue.try_pop(m)){
 	    //chunkmesher::sendtogpu(m);
 	    chunkmesher::getMeshDataQueue().push(m);

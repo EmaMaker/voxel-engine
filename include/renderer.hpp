@@ -6,6 +6,7 @@
 
 #include "chunk.hpp"
 #include "chunkmesher.hpp"
+#include "chunkmeshdata.hpp"
 #include "shader.hpp"
 
 namespace renderer{
@@ -21,8 +22,9 @@ namespace renderer{
 
     Shader* getRenderShader();
     RenderSet& getChunksToRender();
-    oneapi::tbb::concurrent_queue<chunkmesher::MeshData*>& getMeshDataQueue();
+    ChunkMeshDataQueue& getMeshDataQueue();
 
 };
 
 #endif
+

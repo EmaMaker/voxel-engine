@@ -53,10 +53,6 @@ namespace chunkmanager
 		    index++;
 		}
 
-	// Also init mesh data queue
-	for(int i = 0; i < 10; i++)
-	    chunkmesher::getMeshDataQueue().push(new chunkmesher::MeshData());
-
 	should_run = true;
 	update_thread = std::thread(update);
 	gen_thread = std::thread(generate);
