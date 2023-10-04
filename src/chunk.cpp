@@ -69,7 +69,7 @@ namespace Chunk
         this->blocks.insert(start < 0 ? 0 : start, end >= CHUNK_VOLUME ? CHUNK_VOLUME : end, b);
     }
 
-    void Chunk::setState(uint8_t nstate, bool value)
+    void Chunk::setState(chunk_state_t nstate, bool value)
     {
         if (value)
 	    this->state.fetch_or(nstate);

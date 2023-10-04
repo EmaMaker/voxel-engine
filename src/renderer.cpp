@@ -140,10 +140,11 @@ namespace renderer{
 
 	chunkmesher::MeshData* m;
 	while(MeshDataQueue.try_pop(m)){
-	    chunkmesher::sendtogpu(m);
+	    //chunkmesher::sendtogpu(m);
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
 
+	/*
 	for(auto& c : chunks_torender){
 	    float dist = glm::distance(c->getPosition(), cameraChunkPos);
 	    if(dist <= static_cast<float>(RENDER_DISTANCE)){
@@ -211,6 +212,7 @@ namespace renderer{
 		
 	    }
 	}
+	*/
 
 	total = chunks_torender.size();
 	debug::window::set_parameter("render_chunks_total", total);
@@ -220,14 +222,14 @@ namespace renderer{
 	debug::window::set_parameter("render_chunks_deleted", (int) (render_todelete.size()));
 	debug::window::set_parameter("render_chunks_vertices", vertices);
 
-	for(auto& c : render_todelete){
+	/*for(auto& c : render_todelete){
 	    // we can get away with unsafe erase as access to the container is only done by this
 	    // thread
 	    c->deleteBuffers();
 	    chunks_torender.unsafe_erase(c);
 	    chunkmanager::getDeleteVector().push(c);
 	}
-	render_todelete.clear();
+	render_todelete.clear();*/
 
 	/* DISPLAY TEXTURE ON A QUAD THAT FILLS THE SCREEN */
 	// Now to render the quad, with the texture on top
