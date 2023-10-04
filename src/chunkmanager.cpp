@@ -112,6 +112,7 @@ namespace chunkmanager
 		    // Using the key doesn't work
 		    if(chunks.erase(a)){
 			nUnloaded++;
+			renderer::getDeleteIndexQueue().push(index);
 			delete c;
 		    } else {
 			c->setState(Chunk::CHUNK_STATE_IN_DELETING_QUEUE, false);

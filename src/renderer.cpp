@@ -17,12 +17,14 @@ namespace renderer{
 
     RenderTable ChunksToRender;
     ChunkMeshDataQueue MeshDataQueue;
+    IndexQueue MeshDataToDelete;
 
     Shader* theShader, *quadShader;
     GLuint chunkTexture;
 
     Shader* getRenderShader() { return theShader; }
     ChunkMeshDataQueue& getMeshDataQueue(){ return MeshDataQueue; }
+    IndexQueue& getDeleteIndexQueue(){ return MeshDataToDelete; }
 
     GLuint renderTexFrameBuffer, renderTex, renderTexDepthBuffer, quadVAO, quadVBO;
     int screenWidth, screenHeight;
@@ -139,6 +141,7 @@ namespace renderer{
 	theShader->use();
 	theShader->setVec3("viewPos", cameraPos);
 
+	/* Process incoming mesh data */
 	ChunkMeshData* m;
 	while(MeshDataQueue.try_pop(m)){
 	    RenderTable::accessor a;
@@ -161,7 +164,18 @@ namespace renderer{
 	    chunkmesher::getMeshDataQueue().push(m);
 	}
 
-	// TODO: implement removal of chunks from rendering
+	/* Process chunks to be removed */
+	chunk_index_t queue_index;
+	while(MeshDataToDelete.try_pop(queue_index)){
+	    RenderTable::accessor a;
+
+	    if(ChunksToRender.find(a, queue_index)){
+		RenderInfo* render_info = a->second;
+		render_info->deallocateBuffers();
+		delete render_info;
+		ChunksToRender.erase(a);
+	    }
+	}
 
 	/* Render the chunks */
 	// parallel_for cannot be used since all the rendering needs to happen in a single thread
