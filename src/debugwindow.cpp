@@ -69,6 +69,9 @@ namespace debug{
 		    ImGui::Text("FPS: %d", std::any_cast<int>(parameters.at("fps")));
 		    ImGui::Text("Frametime (ms): %f",
 			    std::any_cast<float>(parameters.at("frametime"))*1000);
+		    ImGui::Text("GPU: (%s) %s",
+			    std::any_cast<const GLubyte*>(parameters.at("gpu_vendor")),
+			    std::any_cast<const GLubyte*>(parameters.at("gpu_renderer")));
 		    //ImGui::PlotLines("Frame Times", arr, IM_ARRAYSIZE(arr);
 		}
 

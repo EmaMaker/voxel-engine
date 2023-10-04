@@ -1,12 +1,7 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
 #include "main.hpp"
 
 #include <iostream>
 #include <thread>
-
-#include "main.hpp"
 
 #define GLOBALS_DEFINER
 #include "globals.hpp"
@@ -60,9 +55,9 @@ int main()
     //glEnable(GL_FRAMEBUFFER_SRGB); //gamma correction done in fragment shader
     //glEnable(GL_CULL_FACE); //GL_BACK GL_CCW by default
 
-    std::cout << "Using GPU: " << glGetString(GL_VENDOR) << " " << glGetString(GL_RENDERER) << "\n";
+    debug::window::set_parameter("gpu_vendor", glGetString(GL_VENDOR));
+    debug::window::set_parameter("gpu_renderer", glGetString(GL_RENDERER));
 
-    wireframe = false;
     for(int i = 0; i < 360; i++){
 	sines[i] = sin(3.14 / 180 * i);
 	cosines[i] = cos(3.14 / 180 * i);
