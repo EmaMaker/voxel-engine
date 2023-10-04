@@ -277,9 +277,12 @@ namespace chunkmanager
     }
 
     void blockpick(WorldUpdateMsg& msg){
+	int old_bx{0}, old_by{0}, old_bz{0};
+	Chunk::Chunk* old_chunk;
+
 	// cast a ray from the camera in the direction pointed by the camera itself
 	glm::vec3 pos = msg.cameraPos;
-	for(float t = 0.0; t <= 10.0; t += 0.5){
+	for(float t = 0.0; t <= 10.0; t += 0.1){
 	    // traverse the ray a block at the time
 	    pos = msg.cameraPos + t*msg.cameraFront;
 
@@ -290,6 +293,8 @@ namespace chunkmanager
 	    int bx = pos.x - px*CHUNK_SIZE;
 	    int by = pos.y - py*CHUNK_SIZE;
 	    int bz = pos.z - pz*CHUNK_SIZE;
+
+	    if(bx == old_bx && by == old_by && bz == old_bz) continue;
 
 	    // exit early if the position is invalid or the chunk does not exist
 	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) continue;
@@ -307,31 +312,14 @@ namespace chunkmanager
 
 		// if placing a new block
 		if(msg.msg_type == WorldUpdateMsgType::BLOCKPICK_PLACE){
-		    // Go half a block backwards on the ray, to check the block where the ray was
-		    // coming from
-		    // Doing this and not using normal adds the unexpected (and unwanted) ability to
-		    // place blocks diagonally, without faces colliding with the block that has
-		    // been clicked
-		    pos -= theCamera.getFront()*0.5f;
-
-		    int px1 = ((int)(pos.x))/CHUNK_SIZE;
-		    int py1 = ((int)(pos.y))/CHUNK_SIZE;
-		    int pz1 = ((int)(pos.z))/CHUNK_SIZE;
-		    int bx1 = pos.x - px1*CHUNK_SIZE;
-		    int by1 = pos.y - py1*CHUNK_SIZE;
-		    int bz1 = pos.z - pz1*CHUNK_SIZE;
-
-		    // exit early if the position is invalid or the chunk does not exist
-		    if(px1 < 0 || py1 < 0 || pz1 < 0 || px1 >= 1024 || py1 >= 1024 || pz1 >= 1024) return;
-		    ChunkTable::accessor a1;
-		    if(!chunks.find(a1, Chunk::calculateIndex(px1, py1, pz1))) return;
-		    Chunk::Chunk* c1 = a1->second;
 		    // place the new block (only stone for now)
-		    c1->setBlock(msg.block, bx1, by1, bz1);
+		    if(!old_chunk) break;
+
+		    old_chunk->setBlock(msg.block, old_bx, old_by, old_bz);
 
 		    // mark the mesh of the chunk the be updated
-		    chunks_to_mesh_queue.push(std::make_pair(c1, MESHING_PRIORITY_PLAYER_EDIT));
-		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
+		    chunks_to_mesh_queue.push(std::make_pair(old_chunk, MESHING_PRIORITY_PLAYER_EDIT));
+		    if(c != old_chunk) chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
 
 		    debug::window::set_parameter("block_last_action", true);
 		    debug::window::set_parameter("block_last_action_block_type", (int)(msg.block));
@@ -368,6 +356,11 @@ namespace chunkmanager
 		}
 		break;
 	    }
+
+	    old_chunk = c;
+	    old_bx = bx;
+	    old_by = by;
+	    old_bz = bz;
 	}
     }
 
