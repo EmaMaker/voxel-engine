@@ -121,7 +121,9 @@ namespace debug{
 			std::any_cast<int>(parameters.at("update_chunks_bucket")));
 		}
 	    }catch(const std::bad_any_cast& e){
-		std::cout << e.what();
+		std::cout << e.what() << std::endl;
+	    }catch(const std::out_of_range& e){
+		std::cout << e.what() << std::endl;
 	    }
 
 	    ImGui::End();
