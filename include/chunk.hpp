@@ -23,6 +23,7 @@
 // int32_t is fine, since i'm limiting the coordinate to only use up to ten bits (1023). There's actually two spare bits
 typedef int32_t chunk_index_t;
 typedef int16_t chunk_intcoord_t;
+typedef uint16_t chunk_state_t;
 
 namespace Chunk
 {
@@ -30,13 +31,13 @@ namespace Chunk
     chunk_index_t calculateIndex(chunk_intcoord_t i, chunk_intcoord_t j, chunk_intcoord_t k);
     chunk_index_t calculateIndex(glm::vec3 pos);
 
-    constexpr uint8_t CHUNK_STATE_GENERATED = 1;
-    constexpr uint8_t CHUNK_STATE_MESHED = 2;
-    constexpr uint8_t CHUNK_STATE_MESH_LOADED = 4;
-    constexpr uint8_t CHUNK_STATE_LOADED = 8;
-    constexpr uint8_t CHUNK_STATE_OUTOFVISION = 16;
-    constexpr uint8_t CHUNK_STATE_UNLOADED = 32;
-    constexpr uint8_t CHUNK_STATE_EMPTY = 64;
+    constexpr chunk_state_t CHUNK_STATE_GENERATED = 1;
+    constexpr chunk_state_t CHUNK_STATE_MESHED = 2;
+    constexpr chunk_state_t CHUNK_STATE_MESH_LOADED = 4;
+    constexpr chunk_state_t CHUNK_STATE_LOADED = 8;
+    constexpr chunk_state_t CHUNK_STATE_OUTOFVISION = 16;
+    constexpr chunk_state_t CHUNK_STATE_UNLOADED = 32;
+    constexpr chunk_state_t CHUNK_STATE_EMPTY = 64;
 
     int coord3DTo1D(int x, int y, int z);
 
@@ -52,9 +53,9 @@ namespace Chunk
 	void deleteBuffers();
 
         glm::vec3 getPosition() { return this->position; }
-        uint8_t getTotalState() { return this->state; }
-        bool getState(uint8_t n) { return (this->state & n) == n; }
-        void setState(uint8_t nstate, bool value);
+        chunk_state_t getTotalState() { return this->state; }
+        bool getState(chunk_state_t n) { return (this->state & n) == n; }
+        void setState(chunk_state_t nstate, bool value);
 
         void setBlock(Block b, int x, int y, int z);
         void setBlocks(int start, int end, Block b);
@@ -71,8 +72,7 @@ namespace Chunk
         glm::vec3 position{};
         IntervalMap<Block> blocks{};
         
-	std::atomic_uint8_t state{0};
-
+	std::atomic<chunk_state_t> state{0};
 	chunk_index_t index;
     };
 };
