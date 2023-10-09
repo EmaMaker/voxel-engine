@@ -24,6 +24,7 @@ namespace chunkmanager
 					 // controls.cpp)
     void generate();
     void mesh();
+    void send_to_chunk_meshing_thread(Chunk::Chunk* c, int priority);
 
     /* Chunk holding data structures */
     // Concurrent hash table of chunks
@@ -89,6 +90,11 @@ namespace chunkmanager
 	    }
 	}
 	chunks_to_mesh_queue.clear();
+    }
+
+    void send_to_chunk_meshing_thread(Chunk::Chunk* c, int priority){
+	c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
+	chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
     }
 
     oneapi::tbb::concurrent_queue<chunk_index_t> chunks_todelete;
@@ -217,8 +223,7 @@ namespace chunkmanager
 				    // Mark as present in the queue before sending to avoid strange
 				    // a chunk being marked as in the queue after it was already
 				    // processed
-				    c->setState(Chunk::CHUNK_STATE_IN_MESHING_QUEUE, true);
-				    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_NORMAL));
+				    send_to_chunk_meshing_thread(c, MESHING_PRIORITY_NORMAL);
 				}
 			    }else mesh++;
 			}
@@ -278,7 +283,8 @@ namespace chunkmanager
 
     void blockpick(WorldUpdateMsg& msg){
 	int old_bx{0}, old_by{0}, old_bz{0};
-	Chunk::Chunk* old_chunk;
+	int old_px{0}, old_py{0}, old_pz{0};
+	Chunk::Chunk* old_chunk{nullptr};
 
 	// cast a ray from the camera in the direction pointed by the camera itself
 	glm::vec3 pos = msg.cameraPos;
@@ -302,11 +308,10 @@ namespace chunkmanager
 	    ChunkTable::accessor a;
 	    if(!chunks.find(a, Chunk::calculateIndex(px, py, pz))) continue;
 	    Chunk::Chunk* c = a->second;
-	    if(!c->getState(Chunk::CHUNK_STATE_GENERATED) || c->getState(Chunk::CHUNK_STATE_EMPTY)) continue;
+	    if(!c->isFree() || !c->getState(Chunk::CHUNK_STATE_GENERATED)) continue;
 
 	    Block b = c->getBlock(bx, by, bz);
 
-	    a.release();
 	    // if the block is non empty
 	    if(b != Block::AIR){
 
@@ -318,14 +323,15 @@ namespace chunkmanager
 		    old_chunk->setBlock(msg.block, old_bx, old_by, old_bz);
 
 		    // mark the mesh of the chunk the be updated
-		    chunks_to_mesh_queue.push(std::make_pair(old_chunk, MESHING_PRIORITY_PLAYER_EDIT));
-		    if(c != old_chunk) chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
+		    send_to_chunk_meshing_thread(old_chunk, MESHING_PRIORITY_PLAYER_EDIT);
+		    if(c != old_chunk) send_to_chunk_meshing_thread(c,
+			    MESHING_PRIORITY_PLAYER_EDIT);
 
 		    debug::window::set_parameter("block_last_action", true);
 		    debug::window::set_parameter("block_last_action_block_type", (int)(msg.block));
-		    debug::window::set_parameter("block_last_action_x", px1*CHUNK_SIZE + bx1);
-		    debug::window::set_parameter("block_last_action_y", px1*CHUNK_SIZE + by1);
-		    debug::window::set_parameter("block_last_action_z", px1*CHUNK_SIZE + bz1);
+		    debug::window::set_parameter("block_last_action_x", old_px*CHUNK_SIZE+bx);
+		    debug::window::set_parameter("block_last_action_y", old_py*CHUNK_SIZE+by);
+		    debug::window::set_parameter("block_last_action_z", old_pz*CHUNK_SIZE+bz);
 		}else{
 		    // replace the current block with air to remove it
 		    c->setBlock( Block::AIR, bx, by, bz);
@@ -361,6 +367,9 @@ namespace chunkmanager
 	    old_bx = bx;
 	    old_by = by;
 	    old_bz = bz;
+	    old_px = px;
+	    old_py = py;
+	    old_pz = pz;
 	}
     }
 
