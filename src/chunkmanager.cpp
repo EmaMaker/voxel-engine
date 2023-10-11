@@ -6,6 +6,7 @@
 #include <thread>
 
 #include <glm/glm.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <oneapi/tbb/parallel_for.h>
@@ -17,6 +18,7 @@
 #include "debugwindow.hpp"
 #include "globals.hpp"
 #include "renderer.hpp"
+#include "utils.hpp"
 
 namespace chunkmanager
 {
@@ -281,16 +283,20 @@ namespace chunkmanager
 	chunks.clear();
     }
 
-    void blockpick(WorldUpdateMsg& msg){
+
+    glm::vec3 ray_intersect(glm::vec3 startposition, glm::vec3 startdir){
 	int old_bx{0}, old_by{0}, old_bz{0};
 	int old_px{0}, old_py{0}, old_pz{0};
 	Chunk::Chunk* old_chunk{nullptr};
+	glm::vec3 old_pos;
 
 	// cast a ray from the camera in the direction pointed by the camera itself
-	glm::vec3 pos = msg.cameraPos;
-	for(float t = 0.0; t <= 10.0; t += 0.1){
+	glm::vec3 origin = startposition;
+	glm::vec3 pos = origin;
+	glm::vec3 front = startdir;
+	for(float t = 0.0; t <= 10.0; t += 0.5){
 	    // traverse the ray a block at the time
-	    pos = msg.cameraPos + t*msg.cameraFront;
+	    pos = origin + t*front;
 
 	    // get which chunk and block the ray is at
 	    int px = ((int)(pos.x))/CHUNK_SIZE;
@@ -305,63 +311,19 @@ namespace chunkmanager
 	    // exit early if the position is invalid or the chunk does not exist
 	    if(px < 0 || py < 0 || pz < 0 || px >= 1024 || py >= 1024 || pz >= 1024) continue;
 
-	    ChunkTable::accessor a;
+	    ChunkTable::const_accessor a;
 	    if(!chunks.find(a, Chunk::calculateIndex(px, py, pz))) continue;
 	    Chunk::Chunk* c = a->second;
-	    if(!c->isFree() || !c->getState(Chunk::CHUNK_STATE_GENERATED)) continue;
+	    if(!c->isFree() || !c->getState(Chunk::CHUNK_STATE_GENERATED)){
+		a.release();
+		continue;
+	    }
 
 	    Block b = c->getBlock(bx, by, bz);
-
+	    a.release();
+	    
 	    // if the block is non empty
-	    if(b != Block::AIR){
-
-		// if placing a new block
-		if(msg.msg_type == WorldUpdateMsgType::BLOCKPICK_PLACE){
-		    // place the new block (only stone for now)
-		    if(!old_chunk) break;
-
-		    old_chunk->setBlock(msg.block, old_bx, old_by, old_bz);
-
-		    // mark the mesh of the chunk the be updated
-		    send_to_chunk_meshing_thread(old_chunk, MESHING_PRIORITY_PLAYER_EDIT);
-		    if(c != old_chunk) send_to_chunk_meshing_thread(c,
-			    MESHING_PRIORITY_PLAYER_EDIT);
-
-		    debug::window::set_parameter("block_last_action", true);
-		    debug::window::set_parameter("block_last_action_block_type", (int)(msg.block));
-		    debug::window::set_parameter("block_last_action_x", old_px*CHUNK_SIZE+bx);
-		    debug::window::set_parameter("block_last_action_y", old_py*CHUNK_SIZE+by);
-		    debug::window::set_parameter("block_last_action_z", old_pz*CHUNK_SIZE+bz);
-		}else{
-		    // replace the current block with air to remove it
-		    c->setBlock( Block::AIR, bx, by, bz);
-
-		    chunks_to_mesh_queue.push(std::make_pair(c, MESHING_PRIORITY_PLAYER_EDIT));
-
-		    // When necessary, also mesh nearby chunks
-		    ChunkTable::accessor a1, a2, b1, b2, c1, c2;
-		    if(bx == 0 && px - 1 >= 0 && chunks.find(a1, Chunk::calculateIndex(px - 1, py, pz)))
-		      chunkmesher::mesh(a1->second);
-		    if(by == 0 && py - 1 >= 0 && chunks.find(b1, Chunk::calculateIndex(px, py - 1, pz)))
-		      chunkmesher::mesh(b1->second);
-		    if(bz == 0 && pz - 1 >= 0 && chunks.find(c1, Chunk::calculateIndex(px, py, pz - 1)))
-		      chunkmesher::mesh(c1->second);
-		    if(bx == CHUNK_SIZE - 1 && px +1 < 1024 && chunks.find(a2, Chunk::calculateIndex(px +1, py, pz)))
-		      chunkmesher::mesh(a2->second);
-		    if(by == CHUNK_SIZE - 1 && py +1 < 1024 && chunks.find(b2, Chunk::calculateIndex(px, py +1, pz)))
-		      chunkmesher::mesh(b2->second);
-		    if(bz == CHUNK_SIZE - 1 && pz +1 < 1024 && chunks.find(c2, Chunk::calculateIndex(px, py, pz +1)))
-		      chunkmesher::mesh(c2->second);
-
-		    debug::window::set_parameter("block_last_action", false);
-		    debug::window::set_parameter("block_last_action_block_type", (int) (Block::AIR));
-		    debug::window::set_parameter("block_last_action_x", px*CHUNK_SIZE + bx);
-		    debug::window::set_parameter("block_last_action_y", py*CHUNK_SIZE + by);
-		    debug::window::set_parameter("block_last_action_z", pz*CHUNK_SIZE + bz);
-
-		}
-		break;
-	    }
+	    if(b != Block::AIR) return pos;
 
 	    old_chunk = c;
 	    old_bx = bx;
@@ -370,7 +332,170 @@ namespace chunkmanager
 	    old_px = px;
 	    old_py = py;
 	    old_pz = pz;
+	    old_pos = pos;
+
 	}
+	return glm::vec3(-1);
+    }
+
+    void blockpick(WorldUpdateMsg& msg){
+	//std::cout << glm::to_string(ray_intersect(msg.cameraPos, msg.cameraFront)) << std::endl;
+	glm::vec3 ray_pos = ray_intersect(msg.cameraPos, msg.cameraFront);
+	if(ray_pos == glm::vec3(-1)) return;
+
+	// Chunk in which the blockpick is happening
+	int chunkx = (int)(ray_pos.x) / CHUNK_SIZE;
+	int chunky = (int)(ray_pos.y) / CHUNK_SIZE;
+	int chunkz = (int)(ray_pos.z) / CHUNK_SIZE;
+	// Block (chunk coord) in which the blockpick is happening
+	int blockx = ray_pos.x - chunkx*CHUNK_SIZE;
+	int blocky = ray_pos.y - chunky*CHUNK_SIZE;
+	int blockz = ray_pos.z - chunkz*CHUNK_SIZE;
+
+	// The chunk must exist, otherwise ray_intersect would have returned an error
+	// Also, the block must be different from AIR
+	
+	ChunkTable::accessor a;
+	if(!chunks.find(a, Chunk::calculateIndex(chunkx, chunky, chunkz))) return;
+	Chunk::Chunk* c = a->second;
+	if(!(c->isFree() && c->getState(Chunk::CHUNK_STATE_GENERATED))) return;
+
+	if(msg.msg_type == WorldUpdateMsgType::BLOCKPICK_BREAK){
+	    c->setBlock(Block::AIR, blockx, blocky, blockz);
+	    send_to_chunk_meshing_thread(c, MESHING_PRIORITY_PLAYER_EDIT);
+	}else{
+	    // Traverse voxel using Amanatides&Woo traversal algorithm
+	    // http://www.cse.yorku.ca/~amana/research/grid.pdf
+
+	    glm::vec3 pos = msg.cameraPos;
+	    glm::vec3 front = glm::normalize(pos - ray_pos);
+
+	    // Original chunk in which the blockpick started
+	    const int ochunkX=chunkx, ochunkY = chunky, ochunkZ = chunkz;
+
+	    // The ray has equation pos + t*front
+
+	    // Initialize phase
+	    // Origin integer voxel coordinates
+	    // Avoid floating point accuracy errors: work as close to 0 as possible, translate
+	    // everything later
+	    int basex = std::floor(ray_pos.x);
+	    int basey = std::floor(ray_pos.y);
+	    int basez = std::floor(ray_pos.z);
+	    double x = ray_pos.x - basex;
+	    double y = ray_pos.y - basey;
+	    double z = ray_pos.z - basez;
+
+	    auto sign = [=](double f){ return f > 0 ? 1 : f < 0 ? -1 : 0; };
+	    auto tmax = [=](double p, double dir){
+		int s = sign(dir);
+
+		if(s > 0)
+		    return (1 - p) / dir;
+		else if(s < 0)
+		    return -(p) / dir;
+		return 0.0;
+	    };
+
+
+	    // Step
+	    int stepX = sign(front.x);
+	    int stepY = sign(front.y);
+	    int stepZ = sign(front.z);
+
+	    // tMax: the value of t at which the ray crosses the first voxel boundary
+	    double tMaxX = tmax(x, front.x);
+	    double tMaxY = tmax(y, front.y);
+	    double tMaxZ = tmax(z, front.z);
+
+	    // tDelta: how far along the ray along they ray (in units of t) for the _ component of such
+	    // a movement to equal the width of a voxel
+	    double tDeltaX = stepX / front.x;
+	    double tDeltaY = stepY / front.y;
+	    double tDeltaZ = stepZ / front.z;
+
+	    for(int i = 0; i < 10; i++){
+		if(tMaxX < tMaxY){
+		    if(tMaxX < tMaxZ) {
+			x += stepX;
+			tMaxX += tDeltaX;
+		    }else{
+			z += stepZ;
+			tMaxZ += tDeltaZ;
+		    }
+		}else{
+		    if(tMaxY < tMaxZ){
+			y += stepY;
+			tMaxY += tDeltaY;
+		    }else{
+			z += stepZ;
+			tMaxZ += tDeltaZ;
+		    }
+		}
+
+		int realx = basex + x;
+		int realy = basey + y;
+		int realz = basez + z;
+
+		chunkx = realx / CHUNK_SIZE;
+		chunky = realy / CHUNK_SIZE;
+		chunkz = realz / CHUNK_SIZE;
+
+		if(chunkx < 0 || chunky < 0 || chunkz < 0 || chunkx > 1023 || chunky > 1023 ||
+			chunkz > 1023) continue;
+
+		blockx = realx - chunkx*CHUNK_SIZE;
+		blocky = realy - chunky*CHUNK_SIZE;
+		blockz = realz - chunkz*CHUNK_SIZE;
+
+
+		Chunk::Chunk* chunk;
+		ChunkTable::accessor b;
+
+		if(chunkx != ochunkX || chunky != ochunkY || chunkz != ochunkZ){
+		    if(!chunks.find(b, Chunk::calculateIndex(chunkx, chunky, chunkz)))
+			continue;
+		    chunk = b->second;
+		    if(!(chunk->isFree() && chunk->getState(Chunk::CHUNK_STATE_GENERATED)))
+			continue;
+
+		}else{
+		    chunk = c;
+		}
+
+		if(chunk->getBlock(blockx, blocky, blockz) != Block::AIR) continue;
+		chunk->setBlock(msg.block, blockx, blocky, blockz);
+		send_to_chunk_meshing_thread(chunk, MESHING_PRIORITY_PLAYER_EDIT);
+		break;
+	    }
+	}
+
+	// Release the chunk in which the blockpick started to avoid locks
+	a.release();
+	 // When necessary, also mesh nearby chunks
+	ChunkTable::accessor a1, a2, b1, b2, c1, c2;
+	if(blockx == 0 && chunkx - 1 >= 0 && chunks.find(a1, Chunk::calculateIndex(chunkx - 1, chunky, chunkz)))
+	  send_to_chunk_meshing_thread(a1->second, MESHING_PRIORITY_PLAYER_EDIT);
+	if(blocky == 0 && chunky - 1 >= 0 && chunks.find(b1, Chunk::calculateIndex(chunkx, chunky - 1, chunkz)))
+	  send_to_chunk_meshing_thread(b1->second, MESHING_PRIORITY_PLAYER_EDIT);
+	if(blockz == 0 && chunkz - 1 >= 0 && chunks.find(c1, Chunk::calculateIndex(chunkx, chunky, chunkz - 1)))
+	  send_to_chunk_meshing_thread(c1->second, MESHING_PRIORITY_PLAYER_EDIT);
+	if(blockx == CHUNK_SIZE - 1 && chunkx +1 < 1024 && chunks.find(a2, Chunk::calculateIndex(chunkx +1, chunky, chunkz)))
+	  send_to_chunk_meshing_thread(a2->second, MESHING_PRIORITY_PLAYER_EDIT);
+	if(blocky == CHUNK_SIZE - 1 && chunky +1 < 1024 && chunks.find(b2, Chunk::calculateIndex(chunkx, chunky +1, chunkz)))
+	  send_to_chunk_meshing_thread(b2->second, MESHING_PRIORITY_PLAYER_EDIT);
+	if(blockz == CHUNK_SIZE - 1 && chunkz +1 < 1024 && chunks.find(c2, Chunk::calculateIndex(chunkx, chunky, chunkz +1)))
+	  send_to_chunk_meshing_thread(c2->second, MESHING_PRIORITY_PLAYER_EDIT);
+
+	// Update debugging information
+
+	debug::window::set_parameter("block_last_action", msg.msg_type ==
+		WorldUpdateMsgType::BLOCKPICK_PLACE);
+	debug::window::set_parameter("block_last_action_block_type", (int)(msg.msg_type ==
+		WorldUpdateMsgType::BLOCKPICK_PLACE ? msg.block : Block::AIR));
+	debug::window::set_parameter("block_last_action_x", chunkx*CHUNK_SIZE+blockx);
+	debug::window::set_parameter("block_last_action_y", chunky*CHUNK_SIZE+blocky);
+	debug::window::set_parameter("block_last_action_z", chunkz*CHUNK_SIZE+blockz);
     }
 
     Block getBlockAtPos(int x, int y, int z){
