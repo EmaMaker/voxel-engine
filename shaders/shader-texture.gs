@@ -26,29 +26,30 @@ void main(){
     EmitVertex();
 
     if(gs_in[0].Extents.x == 0){
-	TexCoord = vec3(0.0, gs_in[0].Extents.z, gs_in[0].BlockType);
+
+	TexCoord = vec3(gs_in[0].Extents.z, 0.0,  gs_in[0].BlockType);
 	gl_Position = gl_in[0].gl_Position + vec4(0.0, 0.0, gs_in[0].Extents.z, 0.0);
 	FragPos = vec3(gl_Position);
 	gl_Position = projection * view * gl_Position;
 	EmitVertex();
 
-	TexCoord = vec3(gs_in[0].Extents.y, 0.0,  gs_in[0].BlockType);
+	TexCoord = vec3(0.0, gs_in[0].Extents.y, gs_in[0].BlockType);
 	gl_Position = gl_in[0].gl_Position + vec4(0.0, gs_in[0].Extents.y, 0.0, 0.0);
 	FragPos = vec3(gl_Position);
 	gl_Position = projection * view * gl_Position;
 	EmitVertex();
 
-	TexCoord = vec3(gs_in[0].Extents.y, gs_in[0].Extents.z,  gs_in[0].BlockType);
+	TexCoord = vec3(gs_in[0].Extents.z, gs_in[0].Extents.y,  gs_in[0].BlockType);
     }
     else if(gs_in[0].Extents.y == 0){
-	TexCoord = vec3(0.0, gs_in[0].Extents.z, gs_in[0].BlockType);
-	gl_Position = gl_in[0].gl_Position + vec4(0.0, 0.0, gs_in[0].Extents.z, 0.0);
+	TexCoord = vec3(gs_in[0].Extents.x, 0.0, gs_in[0].BlockType);
+	gl_Position = gl_in[0].gl_Position + vec4(gs_in[0].Extents.x, 0.0, 0.0, 0.0);
 	FragPos = vec3(gl_Position);
 	gl_Position = projection * view * gl_Position;
 	EmitVertex();
 
-	TexCoord = vec3(gs_in[0].Extents.x, 0.0, gs_in[0].BlockType);
-	gl_Position = gl_in[0].gl_Position + vec4(gs_in[0].Extents.x, 0.0, 0.0, 0.0);
+	TexCoord = vec3(0.0, gs_in[0].Extents.z, gs_in[0].BlockType);
+	gl_Position = gl_in[0].gl_Position + vec4(0.0, 0.0, gs_in[0].Extents.z, 0.0);
 	FragPos = vec3(gl_Position);
 	gl_Position = projection * view * gl_Position;
 	EmitVertex();
